@@ -11,3 +11,5 @@
 **2026-11-01 — Privacy and recovery.** Logs contain route templates and response status, never query strings or memory bodies. Daily compressed SQL and private configuration backups stay on the same host for 14 days; offsite storage is not configured. Live deletion is immediate, while retained backups expire on that schedule. This distinction is disclosed on the privacy page.
 
 **2026-11-01 — Review and compatibility claims.** The supplied credits paragraph is retained as an attributed project-owner statement. Automated verification does not establish a completed human review. Actual Sesame phone connection cannot be exercised from this environment; protocol compatibility is tested with HTTP and independent MCP clients. The report distinguishes these facts.
+
+**2026-11-01 — Transport compatibility.** Streamable HTTP uses the stable v2 per-request stateless handler. Core v2 no longer includes the legacy SSE server transport; it lives in a separately deprecated legacy package, so /sse is omitted under the brief's conditional requirement. GET and DELETE use SDK-defined unsupported-method responses.

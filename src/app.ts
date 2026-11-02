@@ -19,6 +19,7 @@ app.use((req,res,next) => {
  res.on('finish', () => { console.log(JSON.stringify({time:new Date().toISOString(),method:req.method,path:typeof req.route?.path==='string'?req.route.path:(req.path.startsWith('/.well-known/')?'discovery':'unmatched'),status:res.statusCode,duration_ms:Date.now()-start,...(req.path==='/token'?{grant_type:['authorization_code','refresh_token'].includes(req.body?.grant_type)?req.body.grant_type:'other'}:{})})); });
  next();
 });
+app.use('/.well-known',(req,res,next)=>{res.set({'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version','Access-Control-Expose-Headers':'Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version, WWW-Authenticate'});if(req.method==='OPTIONS'){res.sendStatus(204);return;}next();});
 app.use(express.urlencoded({extended:false, limit:'256kb'}));
 app.use(express.json({limit:'512kb'}));
 app.use(cookieParser());
