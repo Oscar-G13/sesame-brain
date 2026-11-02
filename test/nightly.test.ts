@@ -43,7 +43,7 @@ test('Los Angeles nightly clock follows daylight saving time and repeated hours'
 const created:string[]=[];
 before(async()=>{await migrate();});
 after(async()=>{for(const user of created)await pool.query('DELETE FROM users WHERE id=$1',[user]);await pool.end();});
-async function fixture(){const user=randomUUID();created.push(user);await pool.query("INSERT INTO users(id,email,password_hash) VALUES($1,$2,'fixture')",[user,'nightly-'+user+'@example.invalid']);const brain=(await pool.query('INSERT INTO brains(user_id) VALUES($1) RETURNING id',[user])).rows[0].id;return {user_id:user,brain_id:brain};}
+async function fixture(){const user=randomUUID();created.push(user);await pool.query("INSERT INTO users(id,email,password_hash,ai_access_state) VALUES($1,$2,'fixture','approved')",[user,'nightly-'+user+'@example.invalid']);const brain=(await pool.query('INSERT INTO brains(user_id) VALUES($1) RETURNING id',[user])).rows[0].id;return {user_id:user,brain_id:brain};}
 function dependencies(extra:Partial<NightlyDependencies>={}):NightlyDependencies {return {
  enabled:()=>true,now:()=>new Date(generated),options:{deepModel:'test-deep',auditorModel:'test-auditor',openaiConfigured:false,nightlyHour:3,nightlyTokenBudget:100000},
  context:async()=> 'A seeded subject asked for direct answers.',
@@ -63,3 +63,31 @@ test('purge during generation prevents every late snapshot write',async()=>{cons
 test('dry run only previews and never calls a model, claims a run or writes snapshots',async()=>{const identity=await fixture();let called=false;const deps=dependencies({generate:async()=>{called=true;throw new Error('must not call');}});const result=await runNightlyBrain(identity,{dryRun:true},deps);assert.equal(result.state,'preview');assert.ok(result.preview?.formulation_prompt.includes('brain_formulation'));assert.equal(called,false);assert.equal((await pool.query('SELECT id FROM nightly_runs WHERE user_id=$1 AND brain_id=$2',[identity.user_id,identity.brain_id])).rowCount,0);});
 test('nightly sources never cross user or brain boundaries',async()=>{const a=await fixture(),b=await fixture();const marker='FOREIGN-'+randomUUID();await pool.query("INSERT INTO notes(user_id,brain_id,from_agent,to_agents,text) VALUES($1,$2,'maya',ARRAY['all'],$3)",[b.user_id,b.brain_id,marker]);const prompts:string[]=[];const deps=dependencies();const fallback=deps.generate;deps.generate=async(who,request)=>{assert.equal(who.user_id,a.user_id);assert.equal(who.brain_id,a.brain_id);prompts.push(request.prompt);return fallback(who,request);};assert.equal((await runNightlyBrain(a,{},deps)).state,'done');assert.ok(prompts.every(p=>!p.includes(marker)));assert.equal((await pool.query('SELECT id FROM snapshots WHERE user_id=$1 AND brain_id=$2',[b.user_id,b.brain_id])).rowCount,0);});
 test('disabled providers and pre-schedule hours make scheduler no-op',async()=>{const deps=dependencies({enabled:()=>false});assert.deepEqual(await runDueNightlies(deps,new Date(generated)),[]);deps.enabled=()=>true;assert.deepEqual(await runDueNightlies(deps,new Date('2026-11-02T10:00:00Z')),[]);assert.deepEqual(await runDueNightlies(deps,new Date('2026-11-02T20:00:00Z')),[]);});
+test('nightly and automatic-summary activity cannot keep an otherwise idle brain eligible on subsequent days',async()=>{
+ const a=await fixture(),base=new Date('2031-01-01T11:00:00Z'),next=new Date('2031-01-02T11:00:00Z');
+ await pool.query("INSERT INTO activity(user_id,brain_id,actor_agent,kind,created_at) VALUES($1,$2,'maya','note_left',$3)",[a.user_id,a.brain_id,new Date(base.getTime()-3600000)]);
+ const deps=dependencies({now:()=>base});
+ const first=await runDueNightlies(deps,base);assert.equal(first.length,1);assert.equal(first[0].state,'done');
+ await pool.query("UPDATE activity SET created_at=$3 WHERE user_id=$1 AND brain_id=$2 AND actor_agent='brain-nightly'",[a.user_id,a.brain_id,base]);
+ await pool.query("INSERT INTO activity(user_id,brain_id,actor_agent,kind,created_at) VALUES($1,$2,'maya','auto_snapshot',$3)",[a.user_id,a.brain_id,base]);
+ deps.now=()=>next;assert.deepEqual(await runDueNightlies(deps,next),[]);
+ const manual=(await pool.query("INSERT INTO snapshots(user_id,brain_id,agent_label,content,kind,created_at) VALUES($1,$2,'maya','New explicit user memory','manual',$3) RETURNING id",[a.user_id,a.brain_id,new Date(next.getTime()-3600000)])).rows[0].id;
+ await pool.query("INSERT INTO activity(user_id,brain_id,actor_agent,kind,ref_id,created_at) VALUES($1,$2,'maya','snapshot_saved',$3,$4)",[a.user_id,a.brain_id,manual,new Date(next.getTime()-3600000)]);
+ const active=await runDueNightlies(deps,next);assert.equal(active.length,1);assert.equal(active[0].state,'done');
+});
+test('shared nightly material excludes targeted and owner-only sources and preserves real source IDs',async()=>{
+ const a=await fixture(),privateMarker='PRIVATE-'+randomUUID(),publicMarker='PUBLIC-'+randomUUID();
+ const shared=(await pool.query("INSERT INTO notes(user_id,brain_id,from_agent,to_agents,text) VALUES($1,$2,'maya','{all}',$3) RETURNING id",[a.user_id,a.brain_id,publicMarker])).rows[0].id;
+ await pool.query("INSERT INTO notes(user_id,brain_id,from_agent,to_agents,text) VALUES($1,$2,'charlie','{maya}',$3)",[a.user_id,a.brain_id,privateMarker]);
+ await pool.query("INSERT INTO handoffs(user_id,brain_id,from_agent,to_agent,title,context) VALUES($1,$2,'charlie','maya','Private task',$3)",[a.user_id,a.brain_id,privateMarker]);
+ await pool.query("INSERT INTO snapshots(user_id,brain_id,agent_label,content,kind,visibility,to_agents) VALUES($1,$2,'maya',$3,'auto','owner_only','{you}')",[a.user_id,a.brain_id,privateMarker]);
+ const deps=dependencies();let inspected=0;const generate=deps.generate;deps.generate=async(who,request)=>{assert.ok(!request.prompt.includes(privateMarker));assert.ok(request.prompt.includes(publicMarker));inspected++;return generate(who,request);};
+ assert.equal((await runNightlyBrain(a,{},deps)).state,'done');assert.equal(inspected,2);
+ const snapshots=await pool.query("SELECT visibility,to_agents,source_refs FROM snapshots WHERE user_id=$1 AND brain_id=$2 AND agent_label='brain-nightly'",[a.user_id,a.brain_id]);
+ assert.equal(snapshots.rowCount,3);assert.ok(snapshots.rows.every(row=>row.visibility==='shared'&&row.to_agents.includes('all')&&row.source_refs.some((ref:any)=>ref.collection==='notes'&&ref.id===shared)));
+});
+test('pending hosted-AI access disables automatic nightly work without claiming or calling a provider',async()=>{
+ const a=await fixture();await pool.query("UPDATE users SET ai_access_state='pending' WHERE id=$1",[a.user_id]);
+ let called=false;const result=await runNightlyBrain(a,{},dependencies({generate:async()=>{called=true;throw new Error('Unexpected paid work');}}));assert.equal(result.state,'disabled');assert.equal(called,false);
+ assert.equal((await pool.query('SELECT 1 FROM nightly_runs WHERE user_id=$1 AND brain_id=$2',[a.user_id,a.brain_id])).rowCount,0);
+});

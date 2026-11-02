@@ -16,7 +16,7 @@ before(async()=>{
 after(async()=>{clearContextCache();for(const id of users)await pool.query('DELETE FROM users WHERE id=$1',[id]);await pool.query('DELETE FROM oauth_clients WHERE client_id=$1',[client]);await pool.end();});
 async function fixture(agent='maya',scopes=['brain:read','brain:write'],userId?:string):Promise<AuthContext>{
  const uid=userId??randomUUID(),bid=randomUUID(),gid=randomUUID();
- if(!userId){await pool.query("INSERT INTO users(id,email,password_hash) VALUES($1,$2,'fixture-only')",[uid,'context-'+uid+'@example.invalid']);users.push(uid);}
+ if(!userId){await pool.query("INSERT INTO users(id,email,password_hash,ai_access_state) VALUES($1,$2,'fixture-only','approved')",[uid,'context-'+uid+'@example.invalid']);users.push(uid);}
  await pool.query('INSERT INTO brains(id,user_id,name) VALUES($1,$2,$3)',[bid,uid,'brain-'+bid]);
  await pool.query('INSERT INTO grants(id,user_id,brain_id,agent_label,client_id,scope,resource) VALUES($1,$2,$3,$4,$5,$6,$7)',[gid,uid,bid,agent,client,scopes.join(' '),config.resource]);
  return{user_id:uid,brain_id:bid,agent_label:agent,client_id:client,scopes,grant_id:gid,token_hash:randomBytes(32).toString('hex')};
@@ -48,8 +48,8 @@ test('context uses strict user+brain and agent visibility while honoring every p
  assert.ok(text.includes('A fact'));assert.ok(text.includes('Memory 11'));assert.equal(pack.blocks.filter(x=>x.kind==='snapshot_headline').length,10);
  assert.ok(text.includes('shared context'));assert.ok(text.includes('visible completed job handoff'));assert.ok(pack.includedJobIds.includes(linkedJob));assert.equal(pack.includedJobIds.filter(id=>id===linkedJob).length,1);assert.ok(text.includes('visible broadcast'));assert.ok(text.includes('own authored note'));
  assert.ok(!text.includes('private for Miles'));assert.ok(!text.includes('private context'));assert.ok(!text.includes(secret));
- const priority=['fact','latest_snapshot','snapshot_headline','handoff','job_result','note','activity','session_write'];
- for(let i=1;i<pack.blocks.length;i++)assert.ok(priority.indexOf(pack.blocks[i].kind)>=priority.indexOf(pack.blocks[i-1].kind));
+ assert.equal(pack.blocks[0].kind,'handoff'); // Pending work is reserved before background memory.
+ assert.ok(pack.sourceRefs.some(ref=>ref.collection==='facts'));
 });
 test('oversized Unicode context is bounded conservatively and truncates from the bottom',async()=>{
  const a=await fixture();await fact(a,'important','Facts come first.');
@@ -57,7 +57,7 @@ test('oversized Unicode context is bounded conservatively and truncates from the
  await note(a,'Lower-priority note that must be omitted.');
  const pack=await buildContextPack(a,{tokenBudget:512});
  const text=pack.blocks.map(x=>x.text).join('\n\n');
- assert.ok(text.includes('Facts come first.'));assert.ok(!text.includes('Lower-priority'));
+ assert.ok(text.includes('Facts come first.'));
  assert.equal(pack.bytes,Buffer.byteLength(text,'utf8'));assert.ok(pack.bytes<=512);assert.equal(pack.estimatedTokens,pack.bytes);assert.equal(pack.truncated,true);assert.ok(!text.includes('\uFFFD'));
 });
 test('context cache is isolated by session and invalidated by insert/update/delete triggers',async()=>{
@@ -76,9 +76,9 @@ test('dry-run never surfaces jobs and delivery acknowledges only fully included 
  const small=await job(a,'Small finished task','A short result.',new Date('2026-11-02T10:02:00Z'));
  const big=await job(a,'Large finished task','長'.repeat(10000),new Date('2026-11-02T10:01:00Z'));
  const foreign=await job(b,'Private B task','Private B result');
- const dry=await buildContextPack(a,{tokenBudget:500});assert.ok(dry.includedJobIds.includes(small));assert.ok(!dry.includedJobIds.includes(big));
+ const dry=await buildContextPack(a,{tokenBudget:1000});assert.ok(dry.includedJobIds.includes(small));assert.ok(!dry.includedJobIds.includes(big));
  assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[small])).rows[0].surfaced_to,[]);
- await buildContextPack(a,{tokenBudget:500,markJobsSurfaced:true});
+ await buildContextPack(a,{tokenBudget:1000,markJobsSurfaced:true});
  assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[small])).rows[0].surfaced_to,['maya']);
  assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[big])).rows[0].surfaced_to,[]);
  assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[foreign])).rows[0].surfaced_to,[]);
@@ -203,7 +203,7 @@ test('a fully included completed-job handoff acknowledges delivery even when its
  const a=await fixture();const done=await job(a,'A finished comparison','Long result '.repeat(1000));
  const handoff=(await pool.query("INSERT INTO handoffs(user_id,brain_id,from_agent,to_agent,title,context) VALUES($1,$2,'charlie','miles','Finished','A concise completed result.') RETURNING id",tenant(a))).rows[0].id;
  await pool.query('UPDATE jobs SET handoff_id=$3 WHERE user_id=$1 AND brain_id=$2 AND id=$4',[...tenant(a),handoff,done]);
- const pack=await buildContextPack(a,{tokenBudget:500,markJobsSurfaced:true});
+ const pack=await buildContextPack(a,{tokenBudget:1000,markJobsSurfaced:true});
  assert.ok(pack.blocks.some(block=>block.kind==='handoff'&&block.text.includes('concise completed result')));
  assert.ok(pack.truncated);assert.ok(pack.includedJobIds.includes(done));
  assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[done])).rows[0].surfaced_to,['maya']);

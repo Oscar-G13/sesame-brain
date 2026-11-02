@@ -1,106 +1,128 @@
+import {createHash} from 'node:crypto';
 import type pg from 'pg';
 import {pool,transaction} from '../db/index.js';
 import type {AuthContext} from '../tools/service.js';
-
-export interface ContextBlock {kind:string;text:string;sourceIds:string[];}
-export interface ContextPack {blocks:ContextBlock[];estimatedTokens:number;bytes:number;memoryVersion:string;truncated:boolean;includedJobIds:string[];}
-export interface ContextOptions {sessionId?:string;tokenBudget?:number;markJobsSurfaced?:boolean;now?:Date;}
-type Candidate=ContextBlock & {jobId?:string};
+import {intersectAudiences,normalizeAudience,ownerContext,memoryAccessSql,routedAudience,audienceOf,type SourceRef} from './memory.js';
+export interface ContextBlock{kind:string;text:string;sourceIds:string[];}
+export interface ContextPack{blocks:ContextBlock[];estimatedTokens:number;bytes:number;memoryVersion:string;truncated:boolean;includedJobIds:string[];audience:string[];sourceRefs:SourceRef[];}
+export interface ContextOptions{sessionId?:string;query?:string;tokenBudget?:number;markJobsSurfaced?:boolean;now?:Date;sharedOnly?:boolean;audience?:string[];}
+type Candidate=ContextBlock&{jobId?:string;audience?:string[];refs?:SourceRef[];score?:number};
 const cache=new Map<string,{version:string;pack:ContextPack}>();
-export function clearContextCache(scope?:{userId:string;brainId:string}):void{
- if(!scope){cache.clear();return;}
- const prefix=scope.userId+':'+scope.brainId+':';for(const key of cache.keys())if(key.startsWith(prefix))cache.delete(key);
-}
-export function contextTokenBudget(value?:number):number{
- const n=value??Number(process.env.BRAIN_CONTEXT_TOKEN_BUDGET??20000);
- return Number.isFinite(n)?Math.max(64,Math.min(1_000_000,Math.floor(n))):20000;
-}
-export function trimUtf8(text:string,maxBytes:number):string {
- if(maxBytes<=0)return '';
- const buffer=Buffer.from(text,'utf8');if(buffer.length<=maxBytes)return text;
- return buffer.subarray(0,maxBytes).toString('utf8').replace(/�+$/u,'');
-}
-function iso(value:unknown):string{return value instanceof Date?value.toISOString():String(value??'');}
-function compactMeta(value:unknown):string{
- if(!value||typeof value!=='object'||Array.isArray(value))return '';
- const input=value as Record<string,unknown>,output:Record<string,unknown>={};
- for(const key of ['model','input_tokens','output_tokens','latency_ms','job_id'])if(['string','number','boolean'].includes(typeof input[key]))output[key]=input[key];
- return Object.keys(output).length?' '+JSON.stringify(output):'';
-}
+export function clearContextCache(scope?:{userId:string;brainId:string}):void{if(!scope){cache.clear();return;}const prefix=scope.userId+':'+scope.brainId+':';for(const key of cache.keys())if(key.startsWith(prefix))cache.delete(key);}
+export function contextTokenBudget(value?:number):number{const n=value??Number(process.env.BRAIN_CONTEXT_TOKEN_BUDGET??20000);return Number.isFinite(n)?Math.max(64,Math.min(1_000_000,Math.floor(n))):20000;}
+export function trimUtf8(text:string,maxBytes:number):string{if(maxBytes<=0)return '';const b=Buffer.from(text);return b.length<=maxBytes?text:b.subarray(0,maxBytes).toString('utf8').replace(/\uFFFD+$/u,'');}
+const iso=(value:unknown)=>value instanceof Date?value.toISOString():String(value??'');
 export function boundContext(candidates:Candidate[],budget:number,memoryVersion:string):ContextPack{
- const blocks:ContextBlock[]=[],includedJobIds:string[]=[];let bytes=0,truncated=false;
+ const blocks:ContextBlock[]=[],includedJobIds:string[]=[],sourceRefs:SourceRef[]=[];let bytes=0,truncated=false,audience=['all'];
  for(const candidate of candidates){
-  const separator=blocks.length?2:0,remaining=budget-bytes-separator,full=Buffer.byteLength(candidate.text,'utf8');
+  const separator=blocks.length?2:0,remaining=budget-bytes-separator,full=Buffer.byteLength(candidate.text);
   if(remaining<=0){truncated=true;break;}
-  if(full<=remaining){blocks.push({kind:candidate.kind,text:candidate.text,sourceIds:candidate.sourceIds});bytes+=separator+full;if(candidate.jobId&&!includedJobIds.includes(candidate.jobId))includedJobIds.push(candidate.jobId);}
-  else{
-   const suffix='\n[Context truncated at the configured budget.]';
-   const suffixBytes=Buffer.byteLength(suffix,'utf8');
-   const text=remaining>suffixBytes?trimUtf8(candidate.text,remaining-suffixBytes)+suffix:trimUtf8(candidate.text,remaining);
-   if(text){blocks.push({kind:candidate.kind,text,sourceIds:candidate.sourceIds});bytes+=separator+Buffer.byteLength(text,'utf8');}
-   truncated=true;break;
+  let text=candidate.text,complete=true;
+  if(full>remaining){const suffix='\n[Context truncated at its allocated budget.]';text=remaining>Buffer.byteLength(suffix)?trimUtf8(text,remaining-Buffer.byteLength(suffix))+suffix:trimUtf8(text,remaining);complete=false;truncated=true;}
+  if(text){
+   blocks.push({kind:candidate.kind,text,sourceIds:candidate.sourceIds});bytes+=separator+Buffer.byteLength(text);
+   audience=intersectAudiences(audience,candidate.audience);
+   sourceRefs.push(...(candidate.refs??[]));
+   if(complete&&candidate.jobId&&!includedJobIds.includes(candidate.jobId))includedJobIds.push(candidate.jobId);
   }
+  if(!complete)break;
  }
- return {blocks,estimatedTokens:bytes,bytes,memoryVersion,truncated,includedJobIds};
+ return{blocks,bytes,estimatedTokens:bytes,memoryVersion,truncated,includedJobIds,audience,sourceRefs:[...new Map(sourceRefs.map(r=>[r.collection+':'+r.id,r])).values()].slice(0,40)};
 }
-async function candidatesFor(db:pg.PoolClient,a:AuthContext,options:ContextOptions):Promise<Candidate[]>{
- const tenant=[a.user_id,a.brain_id],agent=a.agent_label,result:Candidate[]=[],budget=contextTokenBudget(options.tokenBudget);
- let sessionStart:Date|undefined,selectedBytes=0;
- const push=(candidate:Candidate):boolean=>{selectedBytes+=(result.length?2:0)+Buffer.byteLength(candidate.text,'utf8');result.push(candidate);return selectedBytes<=budget;};
- // Page through collections so a large longitudinal archive is never materialized in Node.
- const page=async(sql:string,params:unknown[],mapper:(row:Record<string,any>)=>Candidate,size=32):Promise<boolean>=>{
-  for(let offset=0;;offset+=size){
-   const rows=await db.query(sql+' LIMIT $'+(params.length+1)+' OFFSET $'+(params.length+2),[...params,size,offset]);
-   for(const row of rows.rows)if(!push(mapper(row)))return false;
-   if(rows.rows.length<size)return true;
-  }
- };
+const stop=new Set(['what','when','where','which','that','this','with','from','have','does','about','could','would','should','please','tell','know','remember','user','your','their','there','they','them','some','the','and','for','are','was','how','why','you','can','did','has','our']);
+function terms(query:string):string[]{return [...new Set((query.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}_-]{1,63}/gu)??[]).filter(term=>!stop.has(term)))].slice(0,12);}
+function matches(text:string,words:string[]):number{const lower=text.toLowerCase();return words.reduce((count,word)=>count+(lower.includes(word)?1:0),0);}
+function excerpt(text:string,words:string[],length=1400):string{
+ const lower=text.toLowerCase(),positions=words.map(w=>lower.indexOf(w)).filter(n=>n>=0),start=positions.length?Math.max(0,Math.min(...positions)-180):0;
+ return(start?'[Excerpt] ':'')+text.slice(start,start+length)+(start+length<text.length?' [More stored material omitted.]':'');
+}
+function ref(collection:SourceRef['collection'],id:string):SourceRef{return{collection,id};}
+function visible(table:string,alias:string,a:AuthContext,params:unknown[],sharedOnly:boolean,target?:string[]):string{
+ const column=['notes','handoffs','jobs'].includes(table)?'source_audience':'to_agents';
+ let sql=memoryAccessSql(table,alias,a,params);
+ if(sharedOnly){
+  sql+=' AND '+alias+".visibility='shared' AND 'all'=ANY("+alias+'.'+column+')';
+  if(table==='notes')sql+=" AND 'all'=ANY("+alias+'.to_agents)';
+  if(table==='handoffs')sql+=' AND ('+alias+".to_agent='all' OR EXISTS(SELECT 1 FROM jobs shared_job WHERE shared_job.user_id="+alias+'.user_id AND shared_job.brain_id='+alias+'.brain_id AND shared_job.handoff_id='+alias+".id AND shared_job.visibility='shared' AND 'all'=ANY(shared_job.source_audience)))";
+ }
+ if(target&&!target.includes('all')&&!(target.length===1&&target[0]==='you'&&ownerContext(a))){
+  const index=params.push(target);
+  sql+=' AND '+alias+".visibility<>'owner_only' AND ('all'=ANY("+alias+'.'+column+') OR $'+index+'::text[]<@'+alias+'.'+column+')';
+  if(table==='notes')sql+=" AND ('all'=ANY("+alias+'.to_agents) OR $'+index+'::text[]<@(ARRAY['+alias+'.from_agent] || '+alias+'.to_agents))';
+  if(table==='handoffs')sql+=' AND ('+alias+".to_agent='all' OR $"+index+'::text[]<@ARRAY['+alias+'.from_agent,'+alias+'.to_agent] OR EXISTS(SELECT 1 FROM jobs target_job WHERE target_job.user_id='+alias+'.user_id AND target_job.brain_id='+alias+'.brain_id AND target_job.handoff_id='+alias+'.id))';
+ }
+ return sql;
+}
+async function assemble(db:pg.PoolClient,a:AuthContext,options:ContextOptions,version:string):Promise<ContextPack>{
+ const budget=contextTokenBudget(options.tokenBudget),tenant=[a.user_id,a.brain_id],words=terms(options.query??''),target=options.audience?normalizeAudience(options.audience):undefined,shared=Boolean(options.sharedOnly||a.client_id==='brain-nightly'||target?.includes('all'));
+ const session:Candidate[]=[],urgent:Candidate[]=[],relevant:Candidate[]=[],background:Candidate[]=[];
  if(options.sessionId){
-  const found=await db.query('SELECT started_at FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4',[...tenant,agent,options.sessionId]);
+  const found=await db.query('SELECT id,started_at FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4',[...tenant,a.agent_label,options.sessionId]);
   if(!found.rowCount)throw new Error('Session not found for this brain and assistant.');
-  sessionStart=found.rows[0].started_at as Date;
+  const events=await db.query("SELECT id,metadata,created_at FROM activity WHERE user_id=$1 AND brain_id=$2 AND actor_agent=$3 AND metadata->>'session_id'=$4 ORDER BY created_at DESC,id DESC LIMIT 20",[...tenant,a.agent_label,options.sessionId]);
+  for(const row of events.rows){
+   const audience=row.metadata?.audience??[a.agent_label];
+   if(shared&&!audience.includes('all'))continue;if(target&&!target.includes('all')&&!(target.length===1&&target[0]==='you'&&ownerContext(a))&&!audience.includes('all')&&!target.every(label=>audience.includes(label)))continue;
+   session.push({kind:'session_write',sourceIds:[row.id],refs:row.metadata?.source_refs??[],audience,text:'CURRENT SESSION '+iso(row.created_at)+' '+String(row.metadata?.tool??'saved change')+'\n'+excerpt(String(row.metadata?.summary??'A change was saved.'),words,1200)});
+  }
  }
- if(!await page('SELECT id,key,value,tags,updated_by,updated_at FROM facts WHERE user_id=$1 AND brain_id=$2 ORDER BY updated_at DESC,id DESC',tenant,row=>({kind:'fact',sourceIds:[row.id],text:'FACT '+row.key+' ['+row.updated_by+'; '+iso(row.updated_at)+']\n'+row.value+(row.tags?.length?'\nTags: '+row.tags.join(', '):'')})))return result;
- const snapshots=await db.query('SELECT id,agent_label,title,kind,content,created_at FROM snapshots WHERE user_id=$1 AND brain_id=$2 ORDER BY created_at DESC,id DESC LIMIT 11',tenant);
- if(snapshots.rows[0]){
-  const row=snapshots.rows[0];if(!push({kind:'latest_snapshot',sourceIds:[row.id],text:'LATEST SNAPSHOT ['+row.kind+'; '+row.agent_label+'; '+iso(row.created_at)+'] '+(row.title??'Untitled')+'\n'+row.content}))return result;
+ const hp:unknown[]=[...tenant],hv=visible('handoffs','h',a,hp,shared,target);
+ const handoffs=await db.query("SELECT h.*,(SELECT j.id FROM jobs j WHERE j.user_id=h.user_id AND j.brain_id=h.brain_id AND j.handoff_id=h.id AND j.state IN ('done','partial') ORDER BY j.finished_at DESC LIMIT 1) AS job_id FROM handoffs h WHERE h.user_id=$1 AND h.brain_id=$2 AND h.status IN ('pending','accepted') AND "+hv+' ORDER BY h.created_at DESC,h.id DESC LIMIT 20',hp);
+ for(const row of handoffs.rows)urgent.push({kind:'handoff',sourceIds:[row.id],refs:[ref('handoffs',row.id)],jobId:row.job_id??undefined,audience:row.job_id?audienceOf(row,'source_audience'):intersectAudiences(audienceOf(row,'source_audience'),[row.from_agent,row.to_agent]),text:'OPEN HANDOFF '+row.id+' ['+row.from_agent+' to '+row.to_agent+'; '+row.status+'] '+row.title+'\n'+excerpt(row.context,words,1600)+(row.next_steps?'\nNext: '+excerpt(row.next_steps,words,400):'')});
+ const jp:unknown[]=[...tenant,a.agent_label],jv=visible('jobs','j',a,jp,shared,target);
+ const jobs=await db.query("SELECT j.id,j.title,j.result_summary,left(j.result_text,2000) AS result_text,j.visibility,j.source_audience,j.finished_at FROM jobs j WHERE j.user_id=$1 AND j.brain_id=$2 AND j.state IN ('done','partial') AND NOT $3=ANY(j.surfaced_to) AND "+jv+' ORDER BY j.finished_at DESC NULLS LAST,j.id DESC LIMIT 20',jp);
+ for(const row of jobs.rows)urgent.push({kind:'job_result',sourceIds:[row.id],refs:[ref('jobs',row.id)],jobId:row.id,audience:audienceOf(row,'source_audience'),text:'COMPLETED JOB '+row.id+' '+row.title+'\n'+excerpt(row.result_summary??row.result_text??'The result is ready.',words,1200)+'\nFull result remains in the job record.'});
+ const fp:unknown[]=[...tenant,words],fv=visible('facts','f',a,fp,shared,target);
+ const facts=await db.query("SELECT f.*,(SELECT count(*) FROM unnest($3::text[]) AS q(term) WHERE strpos(lower(f.key || ' ' || f.value),q.term)>0)::int AS relevance FROM facts f WHERE f.user_id=$1 AND f.brain_id=$2 AND "+fv+" ORDER BY relevance DESC,(f.confirmation='user_confirmed') DESC,f.updated_at DESC,f.id DESC LIMIT 60",fp);
+ for(const row of facts.rows){
+  const candidate:Candidate={kind:'fact',sourceIds:[row.id],refs:[ref('facts',row.id)],audience:audienceOf(row),score:row.relevance,text:'FACT '+row.id+' ['+row.source_type+'; '+row.confirmation+'; confidence '+row.confidence+'; '+row.updated_by+'; '+iso(row.updated_at)+'] '+row.key+'\n'+excerpt(row.value,words,1800)};
+  if(!words.length||row.relevance>0)relevant.push(candidate);else background.push(candidate);
  }
- for(const row of snapshots.rows.slice(1))if(!push({kind:'snapshot_headline',sourceIds:[row.id],text:'PREVIOUS SNAPSHOT ['+row.kind+'; '+row.agent_label+'; '+iso(row.created_at)+'] '+(row.title??'Untitled')+'\n'+row.content.slice(0,300)}))return result;
- if(!await page("SELECT id,from_agent,to_agent,title,context,next_steps,status,created_at,(SELECT j.id FROM jobs j WHERE j.user_id=handoffs.user_id AND j.brain_id=handoffs.brain_id AND j.handoff_id=handoffs.id AND j.state IN ('done','partial') ORDER BY j.finished_at DESC LIMIT 1) AS job_id FROM handoffs WHERE user_id=$1 AND brain_id=$2 AND (to_agent=$3 OR to_agent='all' OR EXISTS(SELECT 1 FROM jobs j WHERE j.user_id=handoffs.user_id AND j.brain_id=handoffs.brain_id AND j.handoff_id=handoffs.id)) AND status IN ('pending','accepted') ORDER BY created_at DESC,id DESC",[...tenant,agent],row=>({kind:'handoff',sourceIds:[row.id],jobId:row.job_id??undefined,text:'OPEN HANDOFF ['+row.status+'; '+row.from_agent+' to '+row.to_agent+'; '+iso(row.created_at)+'] '+row.title+'\n'+row.context+(row.next_steps?'\nNext steps: '+row.next_steps:'')})))return result;
- // At least budget+1 characters of an oversized result forces budget truncation,
- // so no partially fetched job can be acknowledged as fully surfaced.
- if(!await page("SELECT j.id,j.title,left(j.result_text,$4) AS result_text,left(j.result_summary,$4) AS result_summary,j.finished_at,n.text AS note_text FROM jobs j LEFT JOIN notes n ON n.id=j.result_note_id AND n.user_id=j.user_id AND n.brain_id=j.brain_id WHERE j.user_id=$1 AND j.brain_id=$2 AND j.state IN ('done','partial') AND NOT $3=ANY(j.surfaced_to) ORDER BY j.finished_at DESC NULLS LAST,j.created_at DESC,j.id DESC",[...tenant,agent,budget+1],row=>({kind:'job_result',sourceIds:[row.id],jobId:row.id,text:'COMPLETED JOB ['+row.id+'; '+iso(row.finished_at)+'] '+row.title+'\n'+(row.result_text??row.note_text??row.result_summary??'A result is available in job_status.')}),8))return result;
- const since=new Date((options.now??new Date()).getTime()-14*86400000);
- if(!await page("SELECT id,from_agent,to_agents,text,tags,kind,created_at FROM notes WHERE user_id=$1 AND brain_id=$2 AND ($3=ANY(to_agents) OR 'all'=ANY(to_agents) OR from_agent=$3) AND created_at>=$4 ORDER BY created_at DESC,id DESC",[...tenant,agent,since],row=>({kind:'note',sourceIds:[row.id],text:'NOTE ['+row.kind+'; '+row.from_agent+' to '+row.to_agents.join(',')+'; '+iso(row.created_at)+']\n'+row.text+(row.tags?.length?'\nTags: '+row.tags.join(', '):'')})))return result;
- const activity=await db.query("SELECT id,actor_agent,kind,ref_id,jsonb_build_object('model',metadata->'model','input_tokens',metadata->'input_tokens','output_tokens',metadata->'output_tokens','latency_ms',metadata->'latency_ms','job_id',metadata->'job_id') AS metadata,created_at FROM activity WHERE user_id=$1 AND brain_id=$2 ORDER BY created_at DESC,id DESC LIMIT 50",tenant);
- if(activity.rowCount&&!push({kind:'activity',sourceIds:activity.rows.map(r=>r.id as string),text:'RECENT ACTIVITY\n'+activity.rows.map(row=>iso(row.created_at)+' '+row.actor_agent+' '+row.kind+(row.ref_id?' '+row.ref_id:'')+compactMeta(row.metadata)).join('\n')}))return result;
- if(options.sessionId&&sessionStart)await page("SELECT id,metadata->>'tool' AS tool,left(metadata->>'summary',8000) AS summary,created_at FROM activity WHERE user_id=$1 AND brain_id=$2 AND actor_agent=$3 AND metadata->>'session_id'=$4 AND created_at>=$5 ORDER BY created_at,id",[...tenant,agent,options.sessionId,sessionStart],row=>({kind:'session_write',sourceIds:[row.id],text:'THIS SESSION ['+iso(row.created_at)+'] '+String(row.tool??'write')+'\n'+String(row.summary??'A change was saved to this brain.')}));
- return result;
+ const np:unknown[]=[...tenant,words],nv=visible('notes','n',a,np,shared,target);
+ const notes=await db.query("SELECT n.*,(SELECT count(*) FROM unnest($3::text[]) AS q(term) WHERE strpos(lower(n.text),q.term)>0)::int AS relevance FROM notes n WHERE n.user_id=$1 AND n.brain_id=$2 AND "+nv+" AND (cardinality($3::text[])>0 OR n.created_at>=now()-interval '14 days') ORDER BY relevance DESC,n.created_at DESC,n.id DESC LIMIT 50",np);
+ for(const row of notes.rows){
+  const candidate:Candidate={kind:'note',sourceIds:[row.id],refs:[ref('notes',row.id)],audience:routedAudience('notes',row),score:row.relevance,text:'SOURCE NOTE '+row.id+' ['+row.from_agent+'; '+iso(row.created_at)+']\n'+excerpt(row.text,words,1600)};
+  if(words.length&&row.relevance>0)relevant.push(candidate);else background.push(candidate);
+ }
+ const sp:unknown[]=[...tenant,words],sv=visible('snapshots','s',a,sp,shared,target);
+ const snapshots=await db.query("SELECT s.id,s.agent_label,s.title,s.kind,s.visibility,s.to_agents,s.created_at,left(s.content,20000) AS content,(SELECT count(*) FROM unnest($3::text[]) AS q(term) WHERE strpos(lower(s.content),q.term)>0)::int AS relevance FROM snapshots s WHERE s.user_id=$1 AND s.brain_id=$2 AND "+sv+" AND s.kind IN ('manual','auto') ORDER BY relevance DESC,s.created_at DESC,s.id DESC LIMIT 11",sp);
+ for(let i=0;i<snapshots.rows.length;i++){
+  const row=snapshots.rows[i],candidate:Candidate={kind:i===0?'latest_snapshot':'snapshot_headline',sourceIds:[row.id],refs:[ref('snapshots',row.id)],audience:audienceOf(row),score:row.relevance,text:'SNAPSHOT '+row.id+' ['+row.kind+'; '+row.agent_label+'; '+iso(row.created_at)+'] '+(row.title??'Untitled')+'\n'+excerpt(row.content,words,i===0||row.relevance>0?1800:300)};
+  if(words.length&&row.relevance>0)relevant.push(candidate);else background.push(candidate);
+ }
+ // Derived profiles are separate hypotheses, never the primary latest memory.
+ if(words.some(w=>['profile','formulation','overnight','psychological','themes','audit','changes'].includes(w))){
+  const dp:unknown[]=[...tenant],dv=visible('snapshots','s',a,dp,shared,target);
+  const row=(await db.query("SELECT s.* FROM snapshots s WHERE user_id=$1 AND brain_id=$2 AND kind='formulation' AND "+dv+' ORDER BY created_at DESC,id DESC LIMIT 1',dp)).rows[0];
+  if(row)background.push({kind:'derived_formulation',sourceIds:[row.id],refs:[ref('snapshots',row.id)],audience:audienceOf(row),text:'DERIVED HYPOTHESES, NOT VERIFIED FACTS '+row.id+'\n'+excerpt(row.content,words,1600)});
+ }
+ relevant.sort((x,y)=>(y.score??0)-(x.score??0));
+ const selected:Candidate[]=[],jobIds:string[]=[],allRefs:SourceRef[]=[];let used=0,truncated=false,audience=target??['all'];
+ const consume=(items:Candidate[],cap:number)=>{
+  if(!items.length||cap<=0)return;
+  const pack=boundContext(items,cap,version);truncated ||= pack.truncated;used+=(selected.length&&pack.blocks.length?2:0)+pack.bytes;
+  selected.push(...pack.blocks.map(block=>({kind:block.kind,text:block.text,sourceIds:block.sourceIds})));
+  audience=intersectAudiences(audience,pack.audience);allRefs.push(...pack.sourceRefs);
+  for(const id of pack.includedJobIds)if(!jobIds.includes(id))jobIds.push(id);
+ };
+ consume(session,Math.min(Math.floor(budget*0.25),budget));
+ consume(urgent,Math.min(Math.floor(budget*0.30),Math.max(0,budget-used-2)));
+ consume([...relevant,...background],Math.max(0,budget-used-(selected.length?2:0)));
+ const text=selected.map(block=>block.text).join('\n\n'),bytes=Buffer.byteLength(text);
+ return{blocks:selected.map(({kind,text,sourceIds})=>({kind,text,sourceIds})),bytes,estimatedTokens:bytes,memoryVersion:version,truncated,includedJobIds:jobIds,audience,sourceRefs:[...new Map(allRefs.map(r=>[r.collection+':'+r.id,r])).values()].slice(0,40)};
 }
 export async function buildContextPack(a:AuthContext,options:ContextOptions={}):Promise<ContextPack>{
  if(!a.scopes.includes('brain:read'))throw new Error('brain:read is required for context.');
- const budget=contextTokenBudget(options.tokenBudget),key=options.sessionId?[a.user_id,a.brain_id,a.agent_label,options.sessionId,budget].join(':'):undefined;
- const brain=await pool.query('SELECT memory_version FROM brains WHERE user_id=$1 AND id=$2',[a.user_id,a.brain_id]);
- if(!brain.rowCount)throw new Error('Brain not found.');
- const version=String(brain.rows[0].memory_version),saved=key?cache.get(key):undefined;
- let pack:ContextPack;
- if(saved?.version===version)pack=structuredClone(saved.pack);
- else pack=await transaction(async db=>{
+ const budget=contextTokenBudget(options.tokenBudget),queryHash=createHash('sha256').update(options.query??'').digest('hex');
+ const key=options.sessionId?[a.user_id,a.brain_id,a.agent_label,options.sessionId,budget,queryHash,Boolean(options.sharedOnly),ownerContext(a),JSON.stringify(options.audience??null)].join(':'):undefined;
+ const brain=(await pool.query('SELECT memory_version FROM brains WHERE user_id=$1 AND id=$2',[a.user_id,a.brain_id])).rows[0];if(!brain)throw new Error('Brain not found.');
+ const version=String(brain.memory_version),saved=key?cache.get(key):undefined;
+ let pack=saved?.version===version?structuredClone(saved.pack):await transaction(async db=>{
   await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
-  const current=await db.query('SELECT memory_version FROM brains WHERE user_id=$1 AND id=$2',[a.user_id,a.brain_id]);
-  if(!current.rowCount)throw new Error('Brain not found.');
-  return boundContext(await candidatesFor(db,a,options),budget,String(current.rows[0].memory_version));
+  const row=(await db.query('SELECT memory_version FROM brains WHERE user_id=$1 AND id=$2',[a.user_id,a.brain_id])).rows[0];if(!row)throw new Error('Brain not found.');
+  return assemble(db,a,{...options,tokenBudget:budget},String(row.memory_version));
  });
- if(options.markJobsSurfaced&&pack.includedJobIds.length){
-  // Delivery acknowledgement changes tracking only; no result is marked if truncated or omitted.
-  await pool.query('UPDATE jobs SET surfaced_to=array_append(surfaced_to,$3) WHERE user_id=$1 AND brain_id=$2 AND id=ANY($4::uuid[]) AND NOT $3=ANY(surfaced_to)',[a.user_id,a.brain_id,a.agent_label,pack.includedJobIds]);
-  const updated=await pool.query('SELECT memory_version FROM brains WHERE user_id=$1 AND id=$2',[a.user_id,a.brain_id]);
-  pack.memoryVersion=String(updated.rows[0]?.memory_version??pack.memoryVersion);
-  // A delivered result disappears on the next request, so never cache pre-acknowledgement contents.
-  if(key)cache.delete(key);
- }else if(key){
-  if(cache.size>=128)cache.delete(cache.keys().next().value!);
-  cache.set(key,{version:pack.memoryVersion,pack:structuredClone(pack)});
- }
+ if(options.markJobsSurfaced&&pack.includedJobIds.length){await pool.query('UPDATE jobs SET surfaced_to=array_append(surfaced_to,$3) WHERE user_id=$1 AND brain_id=$2 AND id=ANY($4::uuid[]) AND NOT $3=ANY(surfaced_to)',[a.user_id,a.brain_id,a.agent_label,pack.includedJobIds]);if(key)cache.delete(key);}
+ else if(key){if(cache.size>=128)cache.delete(cache.keys().next().value!);cache.set(key,{version:pack.memoryVersion,pack:structuredClone(pack)});}
  return pack;
 }

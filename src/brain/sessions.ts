@@ -3,18 +3,19 @@ import type pg from 'pg';
 import {pool,transaction} from '../db/index.js';
 import type {AuthContext} from '../tools/service.js';
 import {trimUtf8} from './context.js';
+import {intersectAudiences,normalizeAudience,visibilityFor,memoryAccessSql,audienceOf,type SourceRef} from './memory.js';
 
 export interface BrainSession {
  id:string;user_id:string;brain_id:string;agent_label:string;session_key:string;transport_session_id:string|null;
  request_grant_id:string|null;browser_session_id:string|null;source:'oauth'|'dashboard';writable:boolean;content_epoch:string;started_at:Date;last_activity_at:Date;closed_at:Date|null;
  write_count:number;activity_count:number;think_count:number;do_count:number;rolled_up_snapshot_id:string|null;
- briefing:string|null;briefing_at:Date|null;last_snapshot_at:Date|null;rollup_claimed_at:Date|null;rollup_error:string|null;
+ briefing:string|null;briefing_at:Date|null;last_snapshot_at:Date|null;rollup_claimed_at:Date|null;rollup_error:string|null;to_agents:string[];source_refs:SourceRef[];
 }
 export type SummaryResult=string|{text:string;surfacedJobIds?:string[]};
 export type SessionSummarizer=(purpose:'briefing'|'rollup',text:string,auth:AuthContext)=>Promise<SummaryResult>;
 export interface SessionOptions {now?:Date;transportSessionId?:string;summarizer?:SessionSummarizer;idleMinutes?:number;rollupMinutes?:number;userId?:string;brainId?:string;}
 export interface SessionTouch {session:BrainSession;firstTouch:boolean;briefing?:string;}
-export interface SessionEvent {tool:string;write:boolean;summary?:string;refId?:string;collection?:string;now?:Date;}
+export interface SessionEvent {tool:string;write:boolean;summary?:string;refId?:string;collection?:string;now?:Date;sourceAudience?:string[];sourceRefs?:SourceRef[];}
 export interface RollupResult {closed:boolean;snapshotId:string|null;disabled?:boolean;inProgress?:boolean;stale?:boolean;missing?:boolean;message:string;}
 function minutes(value:number|undefined,env:string,fallback:number):number{
  const parsed=value??Number(process.env[env]??fallback);return Number.isFinite(parsed)&&parsed>0?parsed:fallback;
@@ -42,18 +43,18 @@ async function briefingDelta(a:AuthContext,session:BrainSession):Promise<Delta>{
  const tenant=[a.user_id,a.brain_id],parts:string[]=[],jobsIncluded:string[]=[];
  const previous=await pool.query('SELECT last_activity_at FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id<>$4 ORDER BY last_activity_at DESC LIMIT 1',[...tenant,a.agent_label,session.id]);
  const since=previous.rows[0]?.last_activity_at??new Date(0);
- const snapshots=await pool.query('SELECT title,kind,agent_label,created_at,left(content,1000) AS excerpt FROM snapshots WHERE user_id=$1 AND brain_id=$2 AND agent_label<>$3 AND created_at>$4 ORDER BY created_at DESC LIMIT 10',[...tenant,a.agent_label,since]);
- for(const row of snapshots.rows)parts.push('Snapshot from '+row.agent_label+' ('+row.kind+'): '+(row.title??'Untitled')+'\n'+row.excerpt);
- const facts=await pool.query('SELECT key,value FROM facts WHERE user_id=$1 AND brain_id=$2 AND updated_at>$3 ORDER BY updated_at DESC LIMIT 100',[...tenant,since]);
- for(const row of facts.rows)parts.push('New or updated fact '+row.key+': '+row.value);
- const jobs=await pool.query("SELECT id,title,result_summary,left(result_text,2000) AS excerpt FROM jobs WHERE user_id=$1 AND brain_id=$2 AND state IN ('done','partial') AND NOT $3=ANY(surfaced_to) ORDER BY finished_at DESC NULLS LAST LIMIT 20",[...tenant,a.agent_label]);
- for(const row of jobs.rows){
-  const line='Completed job '+row.id+' ('+row.title+'): '+(row.result_summary??row.excerpt??'The result is ready.');
-  const proposed=[...parts,line].join('\n\n');
-  if(Buffer.byteLength(proposed,'utf8')<=20000){parts.push(line);jobsIncluded.push(row.id);}
- }
- const handoffs=await pool.query("SELECT title,from_agent,left(context,1000) AS excerpt FROM handoffs WHERE user_id=$1 AND brain_id=$2 AND (to_agent=$3 OR to_agent='all' OR EXISTS(SELECT 1 FROM jobs j WHERE j.user_id=handoffs.user_id AND j.brain_id=handoffs.brain_id AND j.handoff_id=handoffs.id)) AND status IN ('pending','accepted') ORDER BY created_at DESC LIMIT 20",[...tenant,a.agent_label]);
+ const jp:unknown[]=[...tenant,a.agent_label],jv=memoryAccessSql('jobs','j',a,jp);
+ const jobs=await pool.query("SELECT j.id,j.title,j.result_summary,left(j.result_text,2000) AS excerpt FROM jobs j WHERE user_id=$1 AND brain_id=$2 AND state IN ('done','partial') AND NOT $3=ANY(surfaced_to) AND "+jv+' ORDER BY finished_at DESC NULLS LAST LIMIT 20',jp);
+ for(const row of jobs.rows){const line='Completed job '+row.id+' ('+row.title+'): '+(row.result_summary??row.excerpt??'The result is ready.');if(Buffer.byteLength([...parts,line].join('\n\n'))<=12000){parts.push(line);jobsIncluded.push(row.id);}}
+ const hp:unknown[]=[...tenant],hv=memoryAccessSql('handoffs','h',a,hp);
+ const handoffs=await pool.query("SELECT title,from_agent,left(context,1000) AS excerpt FROM handoffs h WHERE user_id=$1 AND brain_id=$2 AND status IN ('pending','accepted') AND "+hv+' ORDER BY created_at DESC LIMIT 20',hp);
  for(const row of handoffs.rows)parts.push('Open handoff from '+row.from_agent+': '+row.title+'\n'+row.excerpt);
+ const sp:unknown[]=[...tenant,a.agent_label,since],sv=memoryAccessSql('snapshots','s',a,sp);
+ const snapshots=await pool.query('SELECT title,kind,agent_label,created_at,left(content,1000) AS excerpt FROM snapshots s WHERE user_id=$1 AND brain_id=$2 AND agent_label<>$3 AND created_at>$4 AND '+sv+' ORDER BY created_at DESC LIMIT 10',sp);
+ for(const row of snapshots.rows)parts.push('Snapshot from '+row.agent_label+' ('+row.kind+'): '+(row.title??'Untitled')+'\n'+row.excerpt);
+ const fp:unknown[]=[...tenant,since],fv=memoryAccessSql('facts','f',a,fp);
+ const facts=await pool.query('SELECT key,value,confirmation FROM facts f WHERE user_id=$1 AND brain_id=$2 AND updated_at>$3 AND '+fv+' ORDER BY updated_at DESC LIMIT 100',fp);
+ for(const row of facts.rows)parts.push('Updated memory ['+row.confirmation+'] '+row.key+': '+row.value);
  return{text:trimUtf8(parts.join('\n\n'),20000),includedJobIds:jobsIncluded};
 }
 export async function touchSession(a:AuthContext,options:SessionOptions={}):Promise<SessionTouch>{
@@ -73,7 +74,7 @@ export async function touchSession(a:AuthContext,options:SessionOptions={}):Prom
   const inserted=await db.query('INSERT INTO brain_sessions(user_id,brain_id,agent_label,session_key,transport_session_id,request_grant_id,writable,content_epoch,started_at,last_activity_at,browser_session_id,source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11) RETURNING *',[a.user_id,a.brain_id,a.agent_label,key,options.transportSessionId??null,isDashboard(a)?null:a.grant_id,a.scopes.includes('brain:write'),brain.rows[0].content_epoch,now,isDashboard(a)?a.browser_session_id??null:null,isDashboard(a)?'dashboard':'oauth']);
   return{session:rowSession(inserted.rows[0]),firstTouch:true};
  });
- if(!touch.firstTouch||!options.summarizer||!touch.session.writable||!a.scopes.includes('brain:read'))return touch;
+ if(!touch.firstTouch||!options.summarizer||!touch.session.writable||!a.scopes.includes('brain:read')||!(await pool.query("SELECT 1 FROM users WHERE id=$1 AND ai_access_state='approved'",[a.user_id])).rowCount)return touch;
  const delta=await briefingDelta(a,touch.session);if(!delta.text)return touch;
  try{
   const generated=await options.summarizer('briefing',delta.text,a),briefing=spokenWords(summaryText(generated));
@@ -99,16 +100,21 @@ export async function recordSessionActivity(a:AuthContext,sessionId:string,event
  await transaction(async db=>{
   const brain=await db.query('SELECT content_epoch FROM brains WHERE user_id=$1 AND id=$2 FOR UPDATE',[a.user_id,a.brain_id]);
   if(!brain.rowCount||!await currentGrant(db,a))return;
+  const current=(await db.query('SELECT to_agents,source_refs FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL FOR UPDATE',[a.user_id,a.brain_id,a.agent_label,sessionId])).rows[0];if(!current)return;
+  const audience=intersectAudiences(event.sourceAudience??[a.agent_label],a.source_audience);
+  const sourceRefs=[...new Map([...(current.source_refs??[]),...(event.sourceRefs??[])].map((r:SourceRef)=>[r.collection+':'+r.id,r])).values()].slice(0,100);
+  if(event.write||event.tool==='think'||event.tool==='do')await db.query('UPDATE brain_sessions SET to_agents=$5,source_refs=$6 WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4',[a.user_id,a.brain_id,a.agent_label,sessionId,intersectAudiences(current.to_agents,audience),JSON.stringify(sourceRefs)]);
   const updated=await db.query('UPDATE brain_sessions SET last_activity_at=$5,activity_count=activity_count+1,write_count=write_count+$6,think_count=think_count+$7,do_count=do_count+$8 WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL AND content_epoch=$9 RETURNING id',[a.user_id,a.brain_id,a.agent_label,sessionId,now,event.write?1:0,event.tool==='think'?1:0,event.tool==='do'?1:0,brain.rows[0].content_epoch]);
   if(!updated.rowCount)return;
   if(a.scopes.includes('brain:write')&&(event.write||event.tool==='think'||event.tool==='do')){
-   const metadata={session_id:sessionId,tool:event.tool,write:event.write,summary:trimUtf8(event.summary??(event.tool+' completed.'),8000),...(event.refId?{ref_id:event.refId}:{}),...(event.collection?{collection:event.collection}:{})};
+   const metadata={session_id:sessionId,tool:event.tool,write:event.write,summary:trimUtf8(event.summary??(event.tool+' completed.'),8000),audience,source_refs:event.sourceRefs??[],...(event.refId?{ref_id:event.refId}:{}),...(event.collection?{collection:event.collection}:{})};
    await db.query('INSERT INTO activity(user_id,brain_id,actor_agent,kind,ref_id,metadata,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)',[a.user_id,a.brain_id,a.agent_label,'session_tool',event.refId??null,metadata,now]);
   }
  });
 }
 export async function sessionTrailer(a:AuthContext,sessionId?:string,now=new Date()):Promise<string>{
- const jobs=await pool.query("SELECT count(*) FILTER(WHERE state IN ('queued','running'))::int AS pending,count(*) FILTER(WHERE state IN ('done','partial') AND NOT $3=ANY(surfaced_to))::int AS waiting FROM jobs WHERE user_id=$1 AND brain_id=$2",[a.user_id,a.brain_id,a.agent_label]);
+ const params:unknown[]=[a.user_id,a.brain_id,a.agent_label],visible=memoryAccessSql('jobs','j',a,params);
+ const jobs=await pool.query("SELECT count(*) FILTER(WHERE state IN ('queued','running'))::int AS pending,count(*) FILTER(WHERE state IN ('done','partial') AND NOT $3=ANY(surfaced_to))::int AS waiting FROM jobs j WHERE user_id=$1 AND brain_id=$2 AND "+visible,params);
  const parts:string[]=[],row=jobs.rows[0];
  if(row.pending)parts.push(row.pending+' '+(row.pending===1?'job running.':'jobs running.'));
  if(row.waiting)parts.push(row.waiting+' '+(row.waiting===1?'result waiting.':'results waiting.'));
@@ -146,6 +152,7 @@ export async function rollupSession(a:AuthContext,sessionId:string,options:Sessi
    return{result:{closed:true,snapshotId:null,message:'Your session is closed.'} as RollupResult};
   }
   if(session.content_epoch!==String(brain.rows[0].content_epoch))return{result:{closed:false,snapshotId:null,missing:true,message:'This session predates a memory purge.'} as RollupResult};
+  if(!(await db.query("SELECT 1 FROM users WHERE id=$1 AND ai_access_state='approved'",[a.user_id])).rowCount)return{result:{closed:false,snapshotId:null,disabled:true,message:'Automatic summaries are not enabled for this account.'} as RollupResult};
   if(!options.summarizer)return{result:{closed:false,snapshotId:null,disabled:true,message:'Automatic snapshots are unavailable until the AI provider is configured. Your saved notes remain available.'} as RollupResult};
   if(session.rollup_claimed_at&&now.getTime()-session.rollup_claimed_at.getTime()<120000)return{result:{closed:false,snapshotId:null,inProgress:true,message:'Your call is already being saved.'} as RollupResult};
   await db.query('UPDATE brain_sessions SET rollup_claimed_at=$5,rollup_error=NULL WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4',[a.user_id,a.brain_id,a.agent_label,sessionId,now]);
@@ -169,7 +176,8 @@ export async function rollupSession(a:AuthContext,sessionId:string,options:Sessi
    return{closed:false,snapshotId:null,stale:true,message:'The conversation continued, so I will save its summary after the next quiet period.'};
   }
   const stamp=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(now);
-  const snapshot=await db.query("INSERT INTO snapshots(user_id,brain_id,agent_label,title,content,kind,created_at) VALUES($1,$2,$3,$4,$5,'auto',$6) RETURNING id",[a.user_id,a.brain_id,a.agent_label,'Auto snapshot '+stamp+' ('+a.agent_label+')',Array.from(generated).slice(0,200000).join(''),now]);
+  const audience=claimed.to_agents??[a.agent_label];
+  const snapshot=await db.query("INSERT INTO snapshots(user_id,brain_id,agent_label,title,content,kind,created_at,visibility,to_agents,source_refs) VALUES($1,$2,$3,$4,$5,'auto',$6,$7,$8,$9) RETURNING id",[a.user_id,a.brain_id,a.agent_label,'Auto snapshot '+stamp+' ('+a.agent_label+')',Array.from(generated).slice(0,200000).join(''),now,visibilityFor(audience),audience,JSON.stringify(claimed.source_refs??[])]);
   const id=snapshot.rows[0].id as string;
   await db.query('INSERT INTO activity(user_id,brain_id,actor_agent,kind,ref_id,metadata,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)',[a.user_id,a.brain_id,a.agent_label,'auto_snapshot',id,{session_id:sessionId},now]);
   await db.query('UPDATE brain_sessions SET closed_at=$5,last_snapshot_at=$5,rolled_up_snapshot_id=$6,rollup_claimed_at=NULL,rollup_error=NULL WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4',[a.user_id,a.brain_id,a.agent_label,sessionId,now,id]);

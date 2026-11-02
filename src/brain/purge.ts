@@ -7,7 +7,7 @@ export async function purgeBrainContent(userId:string,brainId:string):Promise<vo
  await transaction(async db=>{
   const brain=await db.query('UPDATE brains SET content_epoch=content_epoch+1,memory_version=memory_version+1 WHERE user_id=$1 AND id=$2 RETURNING id',[userId,brainId]);
   if(!brain.rowCount)throw new Error('Brain not found.');
-  for(const table of ['jobs','brain_sessions','nightly_runs','notes','handoffs','facts','snapshots','activity','usage','usage_reservations'])await db.query('DELETE FROM '+table+' WHERE user_id=$1 AND brain_id=$2',[userId,brainId]);
+  for(const table of ['jobs','projects','brain_sessions','nightly_runs','notes','handoffs','fact_revisions','facts','snapshots','activity','usage','usage_reservations'])await db.query('DELETE FROM '+table+' WHERE user_id=$1 AND brain_id=$2',[userId,brainId]);
   // Only validated IDs returned by PostgreSQL become filesystem components.
   await rm(join(aiConfig.workspace,userId,brain.rows[0].id),{recursive:true,force:true});
  });
