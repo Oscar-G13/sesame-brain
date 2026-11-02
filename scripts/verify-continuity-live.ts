@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import {mkdir,writeFile} from 'node:fs/promises';
+import {dirname} from 'node:path';
 import {Client,StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
 import pg from 'pg';
 const base=(process.env.BASE_URL??'https://brain.arxsable.ai').replace(/\/$/,''),resource=base+'/mcp',redirect=base+'/e2e/continuity-callback';
@@ -66,5 +67,6 @@ finally{
  if(created&&!deleted)deleted=await deleteFixture().catch(()=>false);
  receipt.fixture_cleanup_verified=created?deleted&&(await db.query('SELECT id FROM users WHERE email=$1',[email])).rowCount===0:true;
  if(clientId)await db.query('DELETE FROM oauth_clients WHERE client_id=$1',[clientId]);
- await mkdir('evidence',{recursive:true});await writeFile('evidence/continuity-public.json',JSON.stringify(receipt,null,2)+'\n');await db.end();
+ await db.end();console.log(JSON.stringify({event:'continuity_verification_receipt',...receipt}));
+ if(process.env.CONTINUITY_RECEIPT_PATH){await mkdir(dirname(process.env.CONTINUITY_RECEIPT_PATH),{recursive:true});await writeFile(process.env.CONTINUITY_RECEIPT_PATH,JSON.stringify(receipt,null,2)+'\n');}
 }
