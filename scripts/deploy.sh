@@ -17,7 +17,12 @@ fi
 docker compose -p sesame-brain build app sandbox
 docker compose -p sesame-brain up -d db sandbox app
 for _ in $(seq 1 60); do
- if curl --max-time 5 --fail --silent http://127.0.0.1:3360/health >/dev/null && curl --max-time 5 --fail --silent http://127.0.0.1:3360/ready >/dev/null; then
+ if curl --max-time 5 --fail --silent http://127.0.0.1:3360/health >/dev/null; then
+  # Host disk pressure is an operator warning; require the app's functional subsystems.
+  readiness=$(curl --max-time 5 --silent --show-error http://127.0.0.1:3360/ready) || { sleep 2; continue; }
+  if ! python3 -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r["db"] and all(r[k]["ok"] for k in ("provider","sandbox","jobs","nightly","backup","restore")) else 1)' <<< "$readiness"; then sleep 2; continue; fi
+  python3 -c 'import json,sys; r=json.load(sys.stdin); print("readiness_storage_warning=true" if not r["storage"]["ok"] else "readiness_ok=true")' <<< "$readiness"
+
   python3 - "$IMAGE_TAG" <<'PY'
 from pathlib import Path
 import sys

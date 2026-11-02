@@ -515,7 +515,7 @@ Scope: `brain:read`.
 
 Exact client-facing description:
 
-> What has been happening in the shared brain recently, across all assistants. Returns event metadata and actor, not private note contents. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.
+> Recent activity for records visible to this assistant. Returns metadata only; private and owner-only activity stays hidden. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.
 
 Input schema:
 

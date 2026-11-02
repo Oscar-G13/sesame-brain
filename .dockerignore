@@ -9,3 +9,10 @@ evidence
 *.log
 
 .inspector/
+
+private/
+.deploy.lock
+.test.lock
+.ops-last-status.json
+.previous-image
+.watchdog*
