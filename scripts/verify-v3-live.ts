@@ -48,7 +48,7 @@ try{
  for(const [label,entry] of tokens){await pool.query("INSERT INTO grants(id,user_id,brain_id,client_id,agent_label,scope,resource) VALUES($1,$2,$3,$4,$5,'brain:read brain:write',$6)",[entry.grant,user,brain,clientId,label,config.resource]);await pool.query("INSERT INTO access_tokens(token_hash,grant_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[hashToken(entry.token),entry.grant]);}
  server=app.listen(0,'127.0.0.1');await once(server,'listening');const address=server.address();assert.ok(address&&typeof address!=='string');base='http://127.0.0.1:'+address.port;
  for(const [,entry] of tokens){const client=new Client({name:'Brain v3 isolated verification',version:'3.0.0'});clients.push(client);await client.connect(new StreamableHTTPClientTransport(new URL(base+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+entry.token}}}));}
- const [maya,charlie]=clients;assert.equal((await maya.listTools()).tools.length,28);record('public MCP discovery',{tools:28});
+ const [maya,charlie]=clients;assert.equal((await maya.listTools()).tools.length,29);record('public MCP discovery',{tools:28});
  const browser=new Browser(),login=await browser.request('/login');assert.equal(login.status,200);
  assert.equal((await browser.form('/login',{_csrf:csrf(await login.text()),email,password})).status,303,'Owner login must succeed.');
  const session=(await pool.query('SELECT id FROM sessions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',[user])).rows[0];assert.ok(session,'Owner session must exist.');

@@ -27,11 +27,11 @@ mcpRouter.all('/mcp',bearerAuth,async(req,res)=>{
    server.registerTool(name,{
     description:definition.description,
     inputSchema:definition.inputSchema,
-    annotations:{readOnlyHint:['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','job_status','jobs_list','projects_list','project_brief','project_history','memory_history'].includes(name),destructiveHint:['forget','remember','mark_notes_read','save_snapshot'].includes(name),openWorldHint:['think','do'].includes(name)}
+    annotations:{readOnlyHint:['resume','whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','job_status','jobs_list','projects_list','project_brief','project_history','memory_history'].includes(name),destructiveHint:['forget','remember','mark_notes_read','save_snapshot'].includes(name),openWorldHint:['think','do'].includes(name)}
    },async (input:unknown)=>{
     try {
      const data=await executeBrainTool(auth,name,input);
-     return {content:[{type:'text' as const,text:JSON.stringify(data)},{type:'text' as const,text:resultSummary(name,data)}]};
+     return {content:[{type:'text' as const,text:JSON.stringify(data)},{type:'text' as const,text:name==='resume'?String(data.briefing||(data.saved_context?'Saved context is ready.':'No saved context is available yet.')):resultSummary(name,data)}]};
     } catch(error){
      if(error instanceof ToolError||error instanceof z.ZodError)return {isError:true,content:[{type:'text' as const,text:JSON.stringify({error:error instanceof ToolError?error.message:'Check the tool input and try again.',trailer:''})}]};
      // Never let SQL errors, contents or SDK diagnostics escape into the logs.

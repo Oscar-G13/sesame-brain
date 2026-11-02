@@ -1,3 +1,4 @@
+import {executeBrainTool} from '../src/brain/lifecycle.js';
 import {before,after,afterEach,test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -102,4 +103,32 @@ test('queued work cannot retain write authority after its requesting grant is na
  let calls=0;setModelTransportForTests(async()=>{calls++;return response('Unexpected');});
  await runNextJob(a.maya);assert.equal(calls,0);
  assert.equal((await jobStatus({...a.maya,scopes:['brain:read']},queued.job_id!) as {state:string}).state,'failed');
+});
+
+test('generic reasoning in the next same-voice call restores the bookmarked project and current constraint without an ID',async()=>{
+ const a=await fixture();const p=await createProject(a.owner,{title:'A repeatable morning',goal:'Leave enough time for the train'});
+ let state=await addItem(a.owner,{project_id:p.id,expected_version:1,type:'constraint',title:'Train departure',content:'09:30 departure',status:'confirmed'});
+ await executeBrainTool(a.maya,'project_brief',{project_id:p.id});
+ const ended=await executeBrainTool(a.maya,'end_session');assert.equal(ended.closed,true);
+ const sessionsBefore=(await pool.query('SELECT count(*)::int AS n FROM brain_sessions WHERE user_id=$1 AND agent_label=$2',[a.maya.user_id,a.maya.agent_label])).rows[0].n;
+ state=await updateItem(a.owner,{project_id:p.id,item_id:state.items[0].id,expected_version:state.project.version,content:'09:10 departure',reason:'The timetable changed'});
+ await approveItem(a.owner,{project_id:p.id,item_id:state.items[0].id,expected_version:state.project.version,decision:'approve'});
+ let calls=0;setModelTransportForTests(async request=>{
+  calls++;const sent=JSON.stringify(request.messages);assert.match(sent,/CURRENT LIVING PROJECT/);assert.match(sent,/A repeatable morning/);assert.match(sent,/09:10 departure/);
+  return response('The train now departs at 09:10. The next step is to choose when to leave home.');
+ });
+ const resumed=await executeBrainTool(a.maya,'think',{text:'What should we do next?',spoken:true});
+ assert.match(String(resumed.answer),/09:10/);assert.equal(calls,1);
+ const continuity=resumed.continuity as {project:{id:string;confirmed_constraints:{content:string}[]}};
+ assert.equal(continuity.project.id,p.id);assert.ok(continuity.project.confirmed_constraints.some(item=>item.content==='09:10 departure'));
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM brain_sessions WHERE user_id=$1 AND agent_label=$2',[a.maya.user_id,a.maya.agent_label])).rows[0].n,sessionsBefore+1);
+});
+
+test('an explicit new project starts a fresh session scope while an active private call stays restricted',async()=>{
+ const a=await fixture();const p=await createProject(a.owner,{title:'Private planning',allowed_agents:['maya']});
+ await executeBrainTool(a.maya,'project_brief',{project_id:p.id});
+ await assert.rejects(executeBrainTool(a.maya,'project_create',{title:'Still in private context'}),/project audience must respect the supplied memory audience/);
+ assert.equal((await executeBrainTool(a.maya,'end_session')).closed,true);
+ const created=await executeBrainTool(a.maya,'project_create',{title:'A new shared topic'});
+ assert.equal(created.title,'A new shared topic');assert.deepEqual(created.allowed_agents,['all']);
 });

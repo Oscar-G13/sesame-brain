@@ -1,6 +1,6 @@
 {
   "name": "sesame-brain",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "type": "module",
   "description": "A shared brain for your Sesame AI assistants. Unofficial. Vibecoded.",
