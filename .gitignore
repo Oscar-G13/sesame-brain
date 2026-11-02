@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+OWNER_CREDENTIALS.txt
+REPORT.md
+backups/
+*.log
+evidence/private*
+
+.deploy.lock
+.watchdog*
+.previous-image

@@ -1,0 +1,37 @@
+{
+  "name": "sesame-brain",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A shared brain for your Sesame AI assistants. Unofficial. Vibecoded.",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/src/index.js",
+    "migrate": "tsx scripts/migrate.ts",
+    "test": "tsx --test test/*.test.ts",
+    "e2e": "tsx scripts/e2e-oauth.ts"
+  },
+  "dependencies": {
+    "argon2": "latest",
+    "cookie-parser": "latest",
+    "ejs": "latest",
+    "express": "^5.1.0",
+    "ipaddr.js": "latest",
+    "pg": "latest",
+    "zod": "4.6.7",
+    "@modelcontextprotocol/server": "2.4.0",
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/node": "2.1.2"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "latest",
+    "@types/ejs": "latest",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22",
+    "@types/pg": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "playwright": "latest"
+  }
+}

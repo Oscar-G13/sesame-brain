@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.env
+OWNER_CREDENTIALS.txt
+REPORT.md
+backups
+evidence
+*.log

@@ -1,0 +1,25 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_DB: brain_test, POSTGRES_USER: brain, POSTGRES_PASSWORD: test-only}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U brain" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://brain:test-only@localhost:5432/brain_test
+      NODE_ENV: test
+      SESSION_SECRET: test-only
+      TOKEN_PEPPER: test-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run migrate
+      - run: npm test
+      - run: docker build -t sesame-brain:ci .
