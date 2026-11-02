@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.0 — 2026-11-02 — context between conversations
+
+- Centered the home page, guide, dashboard and projects on saving context in one Sesame conversation and resuming it in the next with the same voice and connection. Additional connections are optional.
+- Added deterministic `resume` retrieval and automatic eligible first-touch continuity, including unchanged records and explicit retrieval within a reused session. These paths require no sponsored AI or provider call.
+- Migration 0011 adds a scoped last-project bookmark and nonempty retrieval count/timestamp. Onboarding recognizes one connection plus saved-context delivery, with no claim that a native call was verified.
+- Explicit session closure works when AI summaries are unavailable; saved records remain available and no summary is fabricated.
+- Preserved current evidence, revision history, source audiences, account/grant authorization and purge boundaries. The native Sesame call A → call B check remains separate from protocol and browser verification.
+
 ## 3.0.0 — Living Projects
 
 - Versioned cross-assistant projects with sources, reviewable corrections, dependency review and retrieval receipts.

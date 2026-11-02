@@ -1,6 +1,20 @@
 # Brain architecture
 
-## V3 architecture additions
+## 3.1 — saved context between conversations
+
+The primary continuity path is one Sesame connection used across calls or chats with the same voice. `agent_label` remains connection attribution, routing and access control; it does not assert that Sesame has separate people, native memories or call infrastructure. Additional connections and separate Brain workspaces are optional.
+
+`src/brain/continuity.ts` builds a bounded, deterministic packet from authorized saved records. It can include the bookmarked project and its current constraints, decisions, open questions and unfinished tasks; a previous saved session summary or recorded tool activity; recent notes and facts; open work; and waiting results. Current records take precedence over older summaries. The packet labels saved evidence, truncation and missing context. It cannot reconstruct speech or messages that were never sent through Brain's tools.
+
+The read-only `resume` MCP tool retrieves that context on every request, including when no records changed and the connection is still using the same derived session within the idle window. Eligible first-touch requests also return saved continuity automatically. Neither path requires hosted-AI approval or a provider call. A user can explicitly ask “Resume from Brain” at the start of a new conversation rather than relying on a timer to detect it.
+
+Migration **0011_session_continuity.sql** adds `brain_sessions.last_project_id`, `resume_count` and `resumed_at`. The project bookmark has a user/brain-scoped foreign key and clears when its project is deleted. Bookmark selection and retrieval recheck visibility, live authority, content epoch and source provenance. Delivered context narrows the session audience, so later writes cannot broaden a private read. Restricted or withdrawn source material cannot be revived through an old summary or bookmark.
+
+A successful nonempty saved-context delivery records a retrieval count and timestamp; an empty packet does not. Availability-only reads using `recordReceipt:false` do not create receipts. The dashboard uses scoped receipt metadata for **Saved context retrieved**, without requiring a second connection. A receipt proves that Brain returned saved context; it does not prove a native Sesame call took place, that the model used every returned fact, or that Sesame's internal memory changed.
+
+Explicit `end_session` closes the Brain check-in even when sponsored AI is unavailable or a summary cannot be generated. Previously saved records remain available and no summary is invented. When authorized AI is available, recorded activity can also become a summary under the existing authority, epoch and concurrency checks. Implicit idle roll-up remains a separate mechanism.
+
+## 3.0 architecture additions
 
 Migrations 0005–0010 add fact evidence/history, explicit source audiences, sponsored-AI approval and recovery codes, versioned projects, staged proposals and incremental content quotas. Existing credentials and content remain. Legacy generated artifacts without reliable provenance become owner-visible only, retaining their original bytes.
 
@@ -55,9 +69,9 @@ A service-owned workspace is required for background-job files. Its configured p
 
 The transport creates a request-scoped MCP handler and closes it after handling the request. It supports Streamable HTTP and compatible stateless requests; it does not retain an MCP session ID or an SSE connection that represents a voice call. Sesame receives results only when it invokes a tool. No server-initiated notification or sampling path is assumed.
 
-The original SQL table named `sessions` is **browser authentication**. Migration 0002 preserves it and adds **`brain_sessions`** for voice-call lifecycle state. A derived call-session key hashes the access-token hash and agent label; an actual transport session identifier can be used if one is supplied later. The default new-session boundary is 30 idle minutes. Quiet roll-up uses a separate ten-minute threshold and a 60-second sweeper.
+The original SQL table named `sessions` is **browser authentication**. Migration 0002 preserves it and adds **`brain_sessions`** for recorded Brain check-ins. An OAuth session key derives from the access-token hash and connection label; browser check-ins derive from the signed-in browser session. A transport identifier can be used when supplied. Thirty idle minutes normally start a new derived session, and quiet roll-up uses a separate ten-minute threshold and a 60-second sweeper. These are server heuristics, not observations of native Sesame call or chat boundaries. Explicit `resume` works without waiting for them.
 
-The first tool response in a derived session can carry a short spoken briefing. Every successful response carries an accurate status trailer. Think/do use deterministic first-touch headlines to preserve voice latency. Session writes, reasoning calls and jobs feed the roll-up material; explicit `end_session` requests the same roll-up immediately. Generated output is persisted only after rechecking ownership, connection state and the brain's content epoch.
+Eligible first tool responses in a derived session carry deterministic saved continuity and, when context exists, a short briefing. Explicit `resume` refreshes saved context even inside an existing session. Every successful response carries an accurate status trailer. Session writes, reasoning calls and jobs feed the roll-up material; explicit `end_session` requests closure and an optional authorized summary immediately. Generated output is persisted only after rechecking ownership, connection state and the brain's content epoch.
 
 ## Context, reasoning and background work
 
