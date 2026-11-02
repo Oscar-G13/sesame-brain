@@ -10,3 +10,5 @@ evidence/private*
 .deploy.lock
 .watchdog*
 .previous-image
+
+.inspector/

@@ -13,8 +13,8 @@ Try “leave Charlie a note that the Portland trip is booked,” “anything in 
 Other standard OAuth MCP clients can connect to the same endpoint. Client ID Metadata Documents, dynamic registration and configured fixed clients are supported. Native mobile-client behavior remains subject to the client's implementation.
 
 ## Screenshots
-![Brain mobile landing](evidence/mobile-home.png)
-![Choose an assistant](evidence/mobile-consent.png)
+![Brain mobile landing](evidence/screenshots/home-390.png)
+![Choose an assistant](evidence/screenshots/consent-390.png)
 
 ## Self host in five commands
 Requires Docker Compose, your own domain and an HTTPS reverse proxy. Point the domain at your host and proxy it to host loopback port 3360.

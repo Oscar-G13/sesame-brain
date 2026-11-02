@@ -1,5 +1,5 @@
 # Security
-Report vulnerabilities privately to security@arxsable.ai. Do not include real notes, tokens or passwords in a public issue.
+Report vulnerabilities privately to oscar@arxsable.ai. Do not include real notes, tokens or passwords in a public issue.
 
 Passwords use Argon2id. Session and OAuth credentials are random, stored as hashes, and expire. Authorization codes require PKCE S256 and exact registered redirects. Refresh tokens rotate; reuse revokes the grant family. Every MCP operation checks its bearer credential and scope. Queries constrain both user and brain, with integration tests exercising every tool and guessed identifiers.
 

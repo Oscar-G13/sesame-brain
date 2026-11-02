@@ -7,3 +7,5 @@ REPORT.md
 backups
 evidence
 *.log
+
+.inspector/
