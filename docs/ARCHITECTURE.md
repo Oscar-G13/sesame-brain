@@ -23,7 +23,7 @@ The migration runner holds a PostgreSQL advisory lock, applies each pending numb
 
 ## Hosting and private configuration
 
-Docker Compose project `sesame-brain` runs the application and PostgreSQL. Docker restart policies provide boot persistence; no separate application systemd service or pm2 process is involved. Host-native Caddy imports `/etc/caddy/sesame-brain.caddy`, obtains public TLS, and routes only `brain.arxsable.ai` to `127.0.0.1:3360`. PostgreSQL has no host port. The MCP URL is [https://brain.arxsable.ai/mcp](https://brain.arxsable.ai/mcp).
+Docker Compose project `sesame-brain` runs the application, PostgreSQL, and an isolated code-execution sandbox. Docker restart policies provide boot persistence; no separate application systemd service or pm2 process is involved. Host-native Caddy imports `/etc/caddy/sesame-brain.caddy`, obtains public TLS, and routes only `brain.arxsable.ai` to `127.0.0.1:3360`. PostgreSQL has no host port. The MCP URL is [https://brain.arxsable.ai/mcp](https://brain.arxsable.ai/mcp).
 
 Compose loads secrets from `/srv/sesame-brain/.env`. That server-owned file is gitignored and must remain mode 0600. The application runs as the non-root `node` user; the environment is supplied by Docker, not embedded in its image. Model IDs are configured in `config/ai-models.json` and overridden with the documented environment values. API credentials never belong in model configuration, SQL fixtures, logs, screenshots or Git history.
 
@@ -39,7 +39,7 @@ The transport creates a request-scoped MCP handler and closes it after handling 
 
 The original SQL table named `sessions` is **browser authentication**. Migration 0002 preserves it and adds **`brain_sessions`** for voice-call lifecycle state. A derived call-session key hashes the access-token hash and agent label; an actual transport session identifier can be used if one is supplied later. The default new-session boundary is 30 idle minutes. Quiet roll-up uses a separate ten-minute threshold and a 60-second sweeper.
 
-The first tool response in a derived session can carry a short spoken briefing. Subsequent responses carry an accurate status trailer. Session writes, reasoning calls and jobs feed the roll-up material; explicit `end_session` requests the same roll-up immediately. Generated output is persisted only after rechecking ownership, connection state and the brain's content epoch.
+The first tool response in a derived session can carry a short spoken briefing. Every successful response carries an accurate status trailer. Think/do use deterministic first-touch headlines to preserve voice latency. Session writes, reasoning calls and jobs feed the roll-up material; explicit `end_session` requests the same roll-up immediately. Generated output is persisted only after rechecking ownership, connection state and the brain's content epoch.
 
 ## Context, reasoning and background work
 
@@ -47,9 +47,9 @@ The first tool response in a derived session can carry a short spoken briefing. 
 
 The dry-run CLI is `scripts/context-pack.ts`. It accepts an explicit user and brain and prints the same bounded context without making a model request. Job results are marked surfaced only when their result material is actually delivered, rather than merely fetched for an internal preview.
 
-`think` uses a configured quick or deep model, a bounded wall clock and a small nondestructive tool loop. If reasoning reaches its voice deadline, the response can retain partial text and queue the remaining work. `do` persists a job before returning, so the caller can leave the conversation. Job state and result references are database records; restart recovery must terminate or resume interrupted work explicitly.
+`think` uses a configured quick or deep model, a bounded wall clock and a small nondestructive tool loop. If reasoning reaches its voice deadline, the response can retain partial text and queue the remaining work. `do` persists a job before returning, so the caller can leave the conversation. Job state and result references are database records; startup recovery marks interrupted running jobs failed, preserves queued work, and completes before accepting requests.
 
-The provider wrapper reserves the conservative request allowance against the brain's local-day budget, then settles actual usage. Usage is scoped by user, brain, local date and model. Neither a model request nor a worker may bypass the shared daily allowance. Activity logs retain model, token and latency metadata, not prompt or memory contents.
+The provider wrapper reserves the conservative request allowance against the brain's local-day budget, then settles actual usage. Usage is scoped by user, brain, local date and model. Neither a model request nor a worker may bypass the shared daily allowance. Scoped database activity retains model, token, and latency metadata plus some request/write summaries. Activity and session material are included in export and purge. Application/container stdout excludes prompt and memory contents.
 
 A missing API key disables model work while leaving memory and OAuth available. Availability must be checked with the provider's authenticated models endpoint before live acceptance. Official documentation can establish a published model ID; it cannot establish that a specific account has access. Final authenticated discovery and live results are recorded in `VERIFY.md`.
 
@@ -71,7 +71,7 @@ A purge increments `brains.content_epoch` and removes its owned runs. Before the
 
 ## Export and user-initiated deletion
 
-`GET /account/export` builds a repeatable-read JSON export in `src/web/routes.ts`. The v1 content collections are fetched by the authenticated account. The v2 extension adds `brain_sessions`, jobs, usage and nightly run metadata; snapshot kinds are ordinary exported fields. Browser authentication sessions remain private infrastructure and are not confused with conversational session history.
+`GET /account/export` builds a repeatable-read JSON export in `src/web/routes.ts`. The v1 content collections are fetched by the authenticated account. The v2 extension adds `brain_sessions`, jobs, usage, usage reservations, and nightly run metadata; snapshot kinds are ordinary exported fields. Browser authentication sessions remain private infrastructure and are not confused with conversational session history.
 
 Account deletion still cascades from the user through its brains and all owned collections. The separate clear-memory action belongs to the user and keeps their account and OAuth connections. It clears brain content, new v2 state and that brain's workspace while advancing the epoch that guards in-flight work. Models have no purge or account-deletion tool.
 
@@ -88,3 +88,8 @@ docker compose --profile dev run --rm dev npm test
 The dev profile uses a dedicated temporary `brain_test` PostgreSQL service, separate from production data. Tests use injected provider responses; their results prove orchestration and safety properties, not provider availability or live answer quality. Existing OAuth/MCP/browser checks remain part of acceptance.
 
 The targeted nightly suite is `npx tsx --test test/nightly.test.ts` inside the dev container. It checks strict schema labels, hypotheses, latest dated relationships, deterministic changes, the 100-word summary, DST scheduling, one validation retry, atomic writes, duplicate claims, provider selection, budget refusal, purge during generation, dry-run behavior and tenant isolation. Release-wide and authenticated live verification are recorded separately in `VERIFY.md`.
+
+
+## Production release
+
+Brain 2.0.0 core acceptance passed at 8596c89dd415; final presentation-copy revision df719d6f2e64 was deployed afterward with app, database, and sandbox healthy. The persistent workspaces volume is mounted at /var/lib/brain/workspaces; a separate named volume carries the isolated sandbox Unix socket. Browser call sessions remain tied to a live browser authentication session. Export omits internal session keys, transport identifiers, hashes, and lease identifiers. See [VERIFY.md](VERIFY.md) for CI, public OAuth/browser, restart, preservation, and final deployment receipts.

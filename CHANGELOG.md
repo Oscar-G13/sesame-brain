@@ -1,8 +1,8 @@
 # Changelog
 
-## 2.0.0 — Unreleased
+## 2.0.0 — 2026-11-02
 
-Implementation date: November 2, 2026. Production acceptance is tracked separately in docs/VERIFY.md.
+Released November 2, 2026. Core acceptance passed at 8596c89dd415; presentation-copy revision df719d6f2e64 was then deployed. Production and CI receipts are recorded in docs/VERIFY.md.
 
 ### Phase 1 — reasoning and context
 
