@@ -1,18 +1,37 @@
 import type pg from 'pg';
-import {MemoryError,memoryAccessSql,writeFactRevision,validateSourceRefs,intersectAudiences,visibilityFor,trackSessionWrite,rowVisible,routedAudience,type SourceRef,type MemoryWriteOptions} from '../brain/memory.js';
+import {MemoryError,ownerContext,memoryAccessSql,writeFactRevision,validateSourceRefs,intersectAudiences,visibilityFor,trackSessionWrite,rowVisible,routedAudience,type SourceRef,type MemoryWriteOptions} from '../brain/memory.js';
 import { transaction } from '../db/index.js';
 import { isToolName, toolDefinitions, toolScope, type ToolName } from './definitions.js';
 
 export interface AuthContext { user_id:string;brain_id:string;agent_label:string;client_id:string;scopes:string[];grant_id:string;token_hash:string;browser_session_id?:string;owner_access?:boolean;source_audience?:string[];expected_content_epoch?:number; }
 export class ToolError extends Error { constructor(message:string,public readonly status=400){super(message);} }
 type Db=pg.PoolClient;
-async function event(db:Db,a:AuthContext,kind:string,ref:string|null):Promise<void>{
- await db.query('INSERT INTO activity(user_id,brain_id,actor_agent,kind,ref_id) VALUES($1,$2,$3,$4,$5)',[a.user_id,a.brain_id,a.agent_label,kind,ref]);
+async function event(db:Db,a:AuthContext,kind:string,ref:string|null,audience?:string[],extra:Record<string,unknown>={}):Promise<void>{
+ await db.query('INSERT INTO activity(user_id,brain_id,actor_agent,kind,ref_id,metadata) VALUES($1,$2,$3,$4,$5,$6)',[a.user_id,a.brain_id,a.agent_label,kind,ref,{...extra,audience:audience??a.source_audience??['all']}]);
 }
+/** Metadata follows record ACLs; orphaned events need their actor or explicit shared provenance. */
+function activityVisibility(a:AuthContext,params:unknown[]):string{
+ const actor='$'+params.push(a.agent_label),owner='$'+params.push(ownerContext(a));
+ const allowed:string[]=[],exists:string[]=[];
+ for(const table of ['notes','facts','snapshots','handoffs','jobs','fact_revisions']){
+  const alias='visible_'+table,tenant=alias+'.user_id=e.user_id AND '+alias+'.brain_id=e.brain_id AND '+alias+'.id=target.ref_id';
+  allowed.push("(target.collection='"+table+"' AND EXISTS(SELECT 1 FROM "+table+' '+alias+' WHERE '+tenant+' AND '+memoryAccessSql(table,alias,a,params)+'))');
+  exists.push("(target.collection='"+table+"' AND EXISTS(SELECT 1 FROM "+table+' '+alias+' WHERE '+tenant+'))');
+ }
+ const project="p.user_id=e.user_id AND p.brain_id=e.brain_id AND p.id=target.ref_id";
+ allowed.push("(target.collection='projects' AND EXISTS(SELECT 1 FROM projects p WHERE "+project+" AND ('all'=ANY(p.allowed_agents) OR ("+actor+"<>'you' AND "+actor+"=ANY(p.allowed_agents)))))");
+ exists.push("(target.collection='projects' AND EXISTS(SELECT 1 FROM projects p WHERE "+project+'))');
+ const own="("+actor+"<>'you' AND e.actor_agent="+actor+")";
+ const audience="(e.metadata->'audience' IS NULL OR (jsonb_typeof(e.metadata->'audience')='array' AND ((e.metadata->'audience') ? 'all' OR ("+actor+"<>'you' AND (e.metadata->'audience') ? "+actor+"))))";
+ const explicitShared="((target.ref_id IS NULL OR NOT ("+exists.join(' OR ')+")) AND jsonb_typeof(e.metadata->'audience')='array' AND (e.metadata->'audience') ? 'all')";
+ return '('+owner+'::boolean OR ('+audience+' AND ('+allowed.join(' OR ')+' OR ('+own+' AND NOT ('+exists.join(' OR ')+')) OR '+explicitShared+')))';
+}
+const activityTargetSql="CROSS JOIN LATERAL (SELECT CASE WHEN e.kind IN ('note_left','notes_read') THEN 'notes' WHEN e.kind IN ('fact_stored','fact_corrected','fact_forgotten') THEN 'facts' WHEN e.kind='fact_proposed' THEN 'fact_revisions' WHEN e.kind IN ('snapshot_saved','auto_snapshot') THEN 'snapshots' WHEN e.kind IN ('handoff_created','handoff_accepted','handoff_completed') THEN 'handoffs' WHEN e.kind IN ('job_queued','job_finished','job_email_sent','job_email_failed','job_stopped','think') THEN 'jobs' WHEN e.kind='project_changed' THEN 'projects' WHEN e.metadata->>'collection' IN ('notes','facts','snapshots','handoffs','jobs','fact_revisions','projects') THEN e.metadata->>'collection' WHEN e.kind='session_write' THEN CASE e.metadata->>'tool' WHEN 'remember' THEN 'facts' WHEN 'forget' THEN 'facts' WHEN 'leave_note' THEN 'notes' WHEN 'mark_notes_read' THEN 'notes' WHEN 'save_snapshot' THEN 'snapshots' WHEN 'handoff' THEN 'handoffs' WHEN 'accept_handoff' THEN 'handoffs' WHEN 'complete_handoff' THEN 'handoffs' END END AS collection,CASE WHEN e.kind='fact_proposed' AND e.metadata->>'revision_id' ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN (e.metadata->>'revision_id')::uuid ELSE e.ref_id END AS ref_id) target";
+
 async function autoNote(db:Db,a:AuthContext,to:string,text:string,options:MemoryWriteOptions={}):Promise<void>{
  const audience=options.sourceAudience??['all'];
  const r=await db.query('INSERT INTO notes(user_id,brain_id,from_agent,to_agents,text,tags,visibility,source_audience,source_refs) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',[a.user_id,a.brain_id,a.agent_label,[to],text,['handoff'],visibilityFor(audience),audience,JSON.stringify(options.provenance?.source_refs??[])]);
- await event(db,a,'note_left',r.rows[0].id);
+ await event(db,a,'note_left',r.rows[0].id,options.sourceAudience);
 }
 export async function executeTool(a:AuthContext,name:string,input:unknown={},expectedEpoch?:number,authorize?: (db:Db)=>Promise<void>,options:MemoryWriteOptions={}):Promise<unknown>{
  if(!isToolName(name))throw new ToolError('Unknown tool.');
@@ -82,8 +101,8 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
   if(!r.rowCount)throw new ToolError('Snapshot not found.',404);return r.rows[0];
  }
  case 'activity':{
-  const p=toolDefinitions.activity.inputSchema.parse(input);
-  return(await db.query('SELECT id,actor_agent,kind,ref_id,created_at FROM activity WHERE user_id=$1 AND brain_id=$2 ORDER BY created_at DESC,id DESC LIMIT $3',[...tenant,p.limit])).rows;
+  const p=toolDefinitions.activity.inputSchema.parse(input),params:unknown[]=[...tenant,p.limit],visible=activityVisibility(a,params);
+  return(await db.query('SELECT e.id,e.actor_agent,e.kind,e.ref_id,e.created_at FROM activity e '+activityTargetSql+' WHERE e.user_id=$1 AND e.brain_id=$2 AND '+visible+' ORDER BY e.created_at DESC,e.id DESC LIMIT $3',params)).rows;
  }
  case 'leave_note':{
   const p=toolDefinitions.leave_note.inputSchema.parse(input);
@@ -92,7 +111,7 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
   if(!audience.includes('all')&&to.some(label=>label!=='all'&&!audience.includes(label)))throw new ToolError('The source is not shared with that recipient.',403);
   options.sourceAudience=intersectAudiences(audience,to.includes('all')?['all']:[who,...to]);
   const r=await db.query('INSERT INTO notes(user_id,brain_id,from_agent,to_agents,text,tags,visibility,source_audience,source_refs) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',[...tenant,who,to,p.text,p.tags??[],visibilityFor(audience),audience,JSON.stringify(options.provenance?.source_refs??[])]);
-  await event(db,a,'note_left',r.rows[0].id);
+  await event(db,a,'note_left',r.rows[0].id,options.sourceAudience);
   return {id:r.rows[0].id};
  }
  case 'mark_notes_read':{
@@ -100,7 +119,7 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
   const params:unknown[]=[...tenant,who,p.all===true,p.ids??[]],visible=memoryAccessSql('notes','n',a,params);
   const r=await db.query("UPDATE notes n SET read_by=array_append(read_by,$3) WHERE user_id=$1 AND brain_id=$2 AND ($3=ANY(to_agents) OR 'all'=ANY(to_agents)) AND NOT $3=ANY(read_by) AND ($4::boolean OR id=ANY($5::uuid[])) AND "+visible+' RETURNING n.*',params);
   for(const row of r.rows)options.sourceAudience=intersectAudiences(options.sourceAudience,routedAudience('notes',row));
-  await event(db,a,'notes_read',r.rows[0]?.id??null);
+  await event(db,a,'notes_read',r.rows[0]?.id??null,options.sourceAudience);
   return {marked:r.rowCount};
  }
  case 'handoff':{
@@ -108,7 +127,7 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
   const audience=options.sourceAudience??['all'];if(!audience.includes('all')&&!audience.includes(p.to))throw new ToolError('The source is not shared with that recipient.',403);
   options.sourceAudience=intersectAudiences(audience,[who,p.to]);
   const r=await db.query('INSERT INTO handoffs(user_id,brain_id,from_agent,to_agent,title,context,next_steps,visibility,source_audience,source_refs) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',[...tenant,who,p.to,p.title,p.context,p.next_steps??null,visibilityFor(audience),audience,JSON.stringify(options.provenance?.source_refs??[])]);
-  await event(db,a,'handoff_created',r.rows[0].id);
+  await event(db,a,'handoff_created',r.rows[0].id,options.sourceAudience);
   return {id:r.rows[0].id};
  }
  case 'accept_handoff':{
@@ -119,7 +138,7 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
   const r=await db.query("UPDATE handoffs SET status='accepted',accepted_at=now() WHERE user_id=$1 AND brain_id=$2 AND id=$3 AND to_agent=$4 AND status='pending' RETURNING id,from_agent,title",[...tenant,p.id,who]);
   if(!r.rowCount)throw new ToolError('Pending handoff not found for this assistant.',404);
   await autoNote(db,a,r.rows[0].from_agent,'Accepted handoff: '+r.rows[0].title,options);
-  await event(db,a,'handoff_accepted',p.id);
+  await event(db,a,'handoff_accepted',p.id,options.sourceAudience);
   return {id:p.id,status:'accepted'};
  }
  case 'complete_handoff':{
@@ -127,17 +146,17 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
   const prior=(await db.query('SELECT * FROM handoffs WHERE user_id=$1 AND brain_id=$2 AND id=$3 AND to_agent=$4 FOR UPDATE',[...tenant,p.id,who])).rows[0];
   if(!prior||!rowVisible(prior,a,'source_audience'))throw new ToolError('Handoff not found for this assistant.',404);
   options.sourceAudience=intersectAudiences(options.sourceAudience,prior.source_audience,[prior.from_agent,prior.to_agent]);
-  const r=await db.query("UPDATE handoffs SET status='completed',summary=$5,accepted_at=COALESCE(accepted_at,now()),completed_at=now() WHERE user_id=$1 AND brain_id=$2 AND id=$3 AND to_agent=$4 AND status IN ('pending','accepted') RETURNING id,from_agent,title",[...tenant,p.id,who,p.summary]);
+  const r=await db.query("UPDATE handoffs SET status='completed',summary=$5,accepted_at=COALESCE(accepted_at,now()),completed_at=now(),visibility=$6,source_audience=$7,source_refs=$8 WHERE user_id=$1 AND brain_id=$2 AND id=$3 AND to_agent=$4 AND status IN ('pending','accepted') RETURNING id,from_agent,title",[...tenant,p.id,who,p.summary,visibilityFor(options.sourceAudience??['all']),options.sourceAudience??['all'],JSON.stringify([...new Map([...(prior.source_refs??[]),...(options.provenance?.source_refs??[])].map((ref:SourceRef)=>[ref.collection+':'+ref.id,ref])).values()].slice(0,100))]);
   if(!r.rowCount)throw new ToolError('Open handoff not found for this assistant.',404);
   await autoNote(db,a,r.rows[0].from_agent,'Completed handoff: '+r.rows[0].title+'\n'+p.summary,options);
-  await event(db,a,'handoff_completed',p.id);
+  await event(db,a,'handoff_completed',p.id,options.sourceAudience);
   return {id:p.id,status:'completed'};
  }
  case 'remember':{
   const p=toolDefinitions.remember.inputSchema.parse(input);
   const result=await writeFactRevision(db,a,p.key,p.value,p.tags??[],options);
   options.sourceAudience=result.audience;
-  await event(db,a,result.proposed?'fact_proposed':'fact_stored',result.id);
+  await event(db,a,result.proposed?'fact_proposed':'fact_stored',result.id,result.audience,{revision_id:result.revision_id});
   return result;
  }
  case 'forget':{
@@ -146,13 +165,13 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
   if(old&&!rowVisible(old,a))return{deleted:false};
   if(old)options.sourceAudience=intersectAudiences(options.sourceAudience,old.to_agents);
   const r=await db.query('DELETE FROM facts WHERE user_id=$1 AND brain_id=$2 AND key=$3 RETURNING id',[...tenant,p.key]);
-  await event(db,a,'fact_forgotten',r.rows[0]?.id??null);return{deleted:Boolean(r.rowCount)};
+  await event(db,a,'fact_forgotten',r.rows[0]?.id??null,options.sourceAudience);return{deleted:Boolean(r.rowCount)};
  }
  case 'save_snapshot':{
   const p=toolDefinitions.save_snapshot.inputSchema.parse(input);
   const audience=options.sourceAudience??['all'];
   const r=await db.query('INSERT INTO snapshots(user_id,brain_id,agent_label,title,content,visibility,to_agents,source_refs) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',[...tenant,who,p.title??null,p.content,visibilityFor(audience),audience,JSON.stringify(options.provenance?.source_refs??[])]);
-  await event(db,a,'snapshot_saved',r.rows[0].id);
+  await event(db,a,'snapshot_saved',r.rows[0].id,options.sourceAudience);
   return {id:r.rows[0].id};
  }
  }
