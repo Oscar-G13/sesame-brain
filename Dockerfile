@@ -17,6 +17,8 @@ COPY --chown=node:node package*.json ./
 COPY --chown=node:node migrations ./migrations
 COPY --chown=node:node config ./config
 COPY --chown=node:node src/web ./src/web
+COPY --chown=node:node docs/schema ./docs/schema
+RUN mkdir -p /var/lib/brain/workspaces && chown -R node:node /var/lib/brain
 USER node
 EXPOSE 3000
 CMD ["sh","-c","node dist/scripts/migrate.js && node dist/src/index.js"]

@@ -2,7 +2,7 @@ import type pg from 'pg';
 import { transaction } from '../db/index.js';
 import { isToolName, toolDefinitions, toolScope, type ToolName } from './definitions.js';
 
-export interface AuthContext { user_id:string;brain_id:string;agent_label:string;client_id:string;scopes:string[];grant_id:string;token_hash:string; }
+export interface AuthContext { user_id:string;brain_id:string;agent_label:string;client_id:string;scopes:string[];grant_id:string;token_hash:string;browser_session_id?:string; }
 export class ToolError extends Error { constructor(message:string,public readonly status=400){super(message);} }
 type Db=pg.PoolClient;
 async function event(db:Db,a:AuthContext,kind:string,ref:string|null):Promise<void>{
@@ -12,13 +12,16 @@ async function autoNote(db:Db,a:AuthContext,to:string,text:string):Promise<void>
  const r=await db.query('INSERT INTO notes(user_id,brain_id,from_agent,to_agents,text,tags) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[a.user_id,a.brain_id,a.agent_label,[to],text,['handoff']]);
  await event(db,a,'note_left',r.rows[0].id);
 }
-export async function executeTool(a:AuthContext,name:string,input:unknown={}):Promise<unknown>{
+export async function executeTool(a:AuthContext,name:string,input:unknown={},expectedEpoch?:number,authorize?: (db:Db)=>Promise<void>):Promise<unknown>{
  if(!isToolName(name))throw new ToolError('Unknown tool.');
  if(!a.scopes.includes(toolScope(name)))throw new ToolError('insufficient_scope',403);
  return transaction(async db=>{
+  if(expectedEpoch!==undefined)await db.query('SELECT id FROM users WHERE id=$1 FOR SHARE',[a.user_id]);
   // A locked, tenant-checked parent makes deletion and concurrent snapshot pruning atomic.
-  const brain=await db.query('SELECT id,name FROM brains WHERE user_id=$1 AND id=$2 '+(toolScope(name)==='brain:write'?'FOR UPDATE':'FOR SHARE'),[a.user_id,a.brain_id]);
+  const brain=await db.query('SELECT id,name,content_epoch FROM brains WHERE user_id=$1 AND id=$2 '+(toolScope(name)==='brain:write'?'FOR UPDATE':'FOR SHARE'),[a.user_id,a.brain_id]);
   if(!brain.rowCount)throw new ToolError('Brain not found.',404);
+  if(expectedEpoch!==undefined&&Number(brain.rows[0].content_epoch)!==expectedEpoch)throw new ToolError('Brain reset; work stopped.',409);
+  if(authorize)await authorize(db);
   return run(db,a,name,input,brain.rows[0].name as string);
  });
 }
@@ -30,14 +33,14 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
   toolDefinitions.whoami.inputSchema.parse(input);
   const agents=await db.query('SELECT agent_label AS agent,max(last_used_at) AS last_seen FROM grants WHERE user_id=$1 AND brain_id=$2 AND revoked_at IS NULL GROUP BY agent_label ORDER BY agent_label',tenant);
   const notes=await db.query("SELECT count(*)::int AS n FROM notes WHERE user_id=$1 AND brain_id=$2 AND ($3=ANY(to_agents) OR 'all'=ANY(to_agents)) AND NOT $3=ANY(read_by)",[...tenant,who]);
-  const handoffs=await db.query("SELECT count(*)::int AS n FROM handoffs WHERE user_id=$1 AND brain_id=$2 AND to_agent=$3 AND status IN ('pending','accepted')",[...tenant,who]);
+  const handoffs=await db.query("SELECT count(*)::int AS n FROM handoffs WHERE user_id=$1 AND brain_id=$2 AND (to_agent=$3 OR EXISTS(SELECT 1 FROM jobs j WHERE j.user_id=handoffs.user_id AND j.brain_id=handoffs.brain_id AND j.handoff_id=handoffs.id)) AND status IN ('pending','accepted')",[...tenant,who]);
   return {agent:who,brain:brainName,connected_agents:agents.rows,unread_notes:notes.rows[0].n,pending_handoffs:handoffs.rows[0].n,server_time:new Date().toISOString()};
  }
  case 'inbox':{
   const p=toolDefinitions.inbox.inputSchema.parse(input);
   const notes=await db.query("SELECT * FROM notes WHERE user_id=$1 AND brain_id=$2 AND ($3=ANY(to_agents) OR 'all'=ANY(to_agents)) AND NOT $3=ANY(read_by) ORDER BY created_at DESC,id DESC LIMIT $4",[...tenant,who,p.limit]);
-  const handoffs=await db.query("SELECT * FROM handoffs WHERE user_id=$1 AND brain_id=$2 AND to_agent=$3 AND status IN ('pending','accepted') ORDER BY created_at DESC,id DESC LIMIT $4",[...tenant,who,p.limit]);
-  const items=[...notes.rows.map(note=>({kind:'note',...note})),...handoffs.rows.map(handoff=>({kind:'handoff',...handoff}))].sort((x,y)=>new Date(y.created_at).getTime()-new Date(x.created_at).getTime()).slice(0,p.limit);
+  const handoffs=await db.query("SELECT * FROM handoffs WHERE user_id=$1 AND brain_id=$2 AND (to_agent=$3 OR EXISTS(SELECT 1 FROM jobs j WHERE j.user_id=handoffs.user_id AND j.brain_id=handoffs.brain_id AND j.handoff_id=handoffs.id)) AND status IN ('pending','accepted') ORDER BY created_at DESC,id DESC LIMIT $4",[...tenant,who,p.limit]);
+  const items=[...notes.rows.map(note=>({...note,note_kind:note.kind,kind:'note'})),...handoffs.rows.map(handoff=>({kind:'handoff',...handoff}))].sort((x,y)=>new Date(y.created_at).getTime()-new Date(x.created_at).getTime()).slice(0,p.limit);
   return {items,notes:items.filter(i=>i.kind==='note'),handoffs:items.filter(i=>i.kind==='handoff')};
  }
  case 'read_notes':{
@@ -52,12 +55,12 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
  }
  case 'list_snapshots':{
   const p=toolDefinitions.list_snapshots.inputSchema.parse(input);
-  const r=await db.query('SELECT id,agent_label AS agent,title,created_at,octet_length(content) AS bytes FROM snapshots WHERE user_id=$1 AND brain_id=$2 AND ($3::text IS NULL OR agent_label=$3) ORDER BY created_at DESC,id DESC LIMIT $4',[...tenant,p.agent??null,p.limit]);
+  const r=await db.query('SELECT id,agent_label AS agent,title,kind,created_at,octet_length(content) AS bytes FROM snapshots WHERE user_id=$1 AND brain_id=$2 AND ($3::text IS NULL OR agent_label=$3) ORDER BY created_at DESC,id DESC LIMIT $4',[...tenant,p.agent??null,p.limit]);
   return r.rows;
  }
  case 'get_snapshot':{
   const p=toolDefinitions.get_snapshot.inputSchema.parse(input);
-  const r=await db.query('SELECT id,agent_label AS agent,title,content,created_at FROM snapshots WHERE user_id=$1 AND brain_id=$2 AND id=$3',[...tenant,p.id]);
+  const r=await db.query('SELECT id,agent_label AS agent,title,kind,content,created_at FROM snapshots WHERE user_id=$1 AND brain_id=$2 AND id=$3',[...tenant,p.id]);
   if(!r.rowCount)throw new ToolError('Snapshot not found.',404);
   return r.rows[0];
  }
@@ -116,7 +119,6 @@ async function run(db:Db,a:AuthContext,name:ToolName,input:unknown,brainName:str
  case 'save_snapshot':{
   const p=toolDefinitions.save_snapshot.inputSchema.parse(input);
   const r=await db.query('INSERT INTO snapshots(user_id,brain_id,agent_label,title,content) VALUES($1,$2,$3,$4,$5) RETURNING id',[...tenant,who,p.title??null,p.content]);
-  await db.query('DELETE FROM snapshots WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id IN (SELECT id FROM snapshots WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 ORDER BY created_at DESC,id DESC OFFSET 50)',[...tenant,who]);
   await event(db,a,'snapshot_saved',r.rows[0].id);
   return {id:r.rows[0].id};
  }

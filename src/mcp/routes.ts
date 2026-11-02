@@ -3,7 +3,8 @@ import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { toNodeHandler } from '@modelcontextprotocol/node';
 import { config } from '../config.js';
 import { bearerAuth } from '../oauth/bearer.js';
-import { toolDefinitions, type ToolName } from '../tools/definitions.js';
+import { allToolDefinitions,executeBrainTool,SERVER_INSTRUCTIONS } from '../brain/lifecycle.js';
+import { z } from 'zod/v4';
 import { executeTool, resultSummary, ToolError, type AuthContext } from '../tools/service.js';
 
 export const mcpRouter=Router();
@@ -20,22 +21,22 @@ mcpRouter.all('/mcp',bearerAuth,async(req,res)=>{
  const auth=(req as Request & {auth:AuthContext}).auth;
  // Auth is captured only by this request's factory; it never enters shared state.
  const handler=createMcpHandler(()=>{
-  const server=new McpServer({name:'brain',version:config.version});
-  for(const name of Object.keys(toolDefinitions) as ToolName[]){
-   const definition=toolDefinitions[name];
+  const server=new McpServer({name:'brain',version:config.version},{instructions:SERVER_INSTRUCTIONS});
+  for(const name of Object.keys(allToolDefinitions)){
+   const definition=allToolDefinitions[name];
    server.registerTool(name,{
     description:definition.description,
     inputSchema:definition.inputSchema,
-    annotations:{readOnlyHint:['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity'].includes(name),destructiveHint:['forget','remember','mark_notes_read','save_snapshot'].includes(name),openWorldHint:false}
+    annotations:{readOnlyHint:['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','job_status','jobs_list'].includes(name),destructiveHint:['forget','remember','mark_notes_read','save_snapshot'].includes(name),openWorldHint:['think','do'].includes(name)}
    },async (input:unknown)=>{
     try {
-     const data=await executeTool(auth,name,input);
+     const data=await executeBrainTool(auth,name,input);
      return {content:[{type:'text' as const,text:JSON.stringify(data)},{type:'text' as const,text:resultSummary(name,data)}]};
     } catch(error){
-     if(error instanceof ToolError)return {isError:true,content:[{type:'text' as const,text:error.message}]};
+     if(error instanceof ToolError||error instanceof z.ZodError)return {isError:true,content:[{type:'text' as const,text:JSON.stringify({error:error instanceof ToolError?error.message:'Check the tool input and try again.',trailer:''})}]};
      // Never let SQL errors, contents or SDK diagnostics escape into the logs.
      console.error(JSON.stringify({event:'tool_failed',tool:name}));
-     return {isError:true,content:[{type:'text' as const,text:'The operation could not be completed. Try again.'}]};
+     return {isError:true,content:[{type:'text' as const,text:JSON.stringify({error:'The operation could not be completed. Try again.',trailer:''})}]};
     }
    });
   }

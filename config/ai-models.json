@@ -1,0 +1,6 @@
+{
+  "quick": "claude-sonnet-5-5",
+  "deep": "claude-opus-5-5",
+  "anthropicVersion": "2023-06-01",
+  "webSearchType": "web_search_20250305"
+}

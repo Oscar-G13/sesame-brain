@@ -12,6 +12,7 @@ jobs:
     env:
       DATABASE_URL: postgres://brain:test-only@localhost:5432/brain_test
       NODE_ENV: test
+      BRAIN_WORKSPACE_DIR: /tmp/brain-test-workspaces
       SESSION_SECRET: test-only
       TOKEN_PEPPER: test-only
     steps:
@@ -23,3 +24,4 @@ jobs:
       - run: npm run migrate
       - run: npm test
       - run: docker build -t sesame-brain:ci .
+      - run: docker build -t sesame-brain-sandbox:ci sandbox

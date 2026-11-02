@@ -1,0 +1,1542 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brain.arxsable.ai/schema/dossier.v1.json",
+  "title": "Brain conversation-derived formulation v1",
+  "description": "Nonclinical, qualitative and explicitly uncertain. Never a diagnosis, test score, professional assessment or established fact about another person.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "brain_formulation"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 12000
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "assistant": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "brain_agent_id": {
+          "const": "brain-nightly"
+        },
+        "purpose_stated_by_subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        }
+      },
+      "required": [
+        "assistant",
+        "brain_agent_id"
+      ]
+    },
+    "instructions_for_receiving_model": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 12000
+      },
+      "maxItems": 1000
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preferred_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "region": {
+          "$ref": "#/$defs/statement"
+        },
+        "occupation_reported": {
+          "$ref": "#/$defs/statement"
+        },
+        "family_reported": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          },
+          "maxItems": 1000
+        }
+      },
+      "required": [
+        "preferred_name"
+      ],
+      "patternProperties": {
+        "^relationship_status_as_of_[0-9]{4}-[0-9]{2}-[0-9]{2}$": {
+          "$ref": "#/$defs/statement"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "observation_window": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/date"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/date"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "approx_months": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          "required": [
+            "start",
+            "end",
+            "approx_months"
+          ]
+        },
+        "sources_used": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000
+        },
+        "sources_not_used": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000
+        },
+        "only_one_side_logged": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "observation_window",
+        "sources_used",
+        "sources_not_used"
+      ]
+    },
+    "evidence_labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "direct_statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "summarized_history": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "observed_pattern": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "hypothesis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "unknown": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        }
+      },
+      "required": [
+        "direct_statement",
+        "summarized_history",
+        "observed_pattern",
+        "hypothesis",
+        "unknown"
+      ]
+    },
+    "confidence_scale": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "high": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "moderate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "low": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        }
+      },
+      "required": [
+        "high",
+        "moderate",
+        "low"
+      ]
+    },
+    "methodology": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "approach": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000
+        },
+        "what_this_is_not": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000
+        }
+      },
+      "required": [
+        "approach",
+        "steps",
+        "what_this_is_not"
+      ]
+    },
+    "executive_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 12000
+    },
+    "timeline_of_psychologically_relevant_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_type": {
+            "$ref": "#/$defs/evidenceType"
+          },
+          "event": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "confidence": {
+            "$ref": "#/$defs/confidence"
+          },
+          "alternative_explanations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12000
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "date",
+          "evidence_type",
+          "event"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "evidence_type": {
+                  "const": "hypothesis"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/$defs/confidence"
+                },
+                "alternative_explanations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12000
+                  },
+                  "minItems": 1,
+                  "maxItems": 1000
+                }
+              },
+              "required": [
+                "confidence",
+                "alternative_explanations"
+              ]
+            }
+          }
+        ]
+      },
+      "maxItems": 1000
+    },
+    "theme_recurrence_by_month": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "theme": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "months": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+            },
+            "maxItems": 1000
+          },
+          "confidence": {
+            "$ref": "#/$defs/confidence"
+          },
+          "evidence_type": {
+            "$ref": "#/$defs/evidenceType"
+          },
+          "alternative_explanations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12000
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "theme",
+          "months",
+          "confidence",
+          "evidence_type"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "evidence_type": {
+                  "const": "hypothesis"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/$defs/confidence"
+                },
+                "alternative_explanations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12000
+                  },
+                  "minItems": 1,
+                  "maxItems": 1000
+                }
+              },
+              "required": [
+                "confidence",
+                "alternative_explanations"
+              ]
+            }
+          }
+        ]
+      },
+      "maxItems": 1000
+    },
+    "core_themes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "theme": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "date": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/date"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "evidence_type": {
+                  "$ref": "#/$defs/evidenceType"
+                },
+                "detail": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 12000
+                },
+                "confidence": {
+                  "$ref": "#/$defs/confidence"
+                },
+                "alternative_explanations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12000
+                  },
+                  "minItems": 1,
+                  "maxItems": 1000
+                }
+              },
+              "required": [
+                "date",
+                "evidence_type",
+                "detail"
+              ],
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "evidence_type": {
+                        "const": "hypothesis"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "confidence": {
+                        "$ref": "#/$defs/confidence"
+                      },
+                      "alternative_explanations": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 12000
+                        },
+                        "minItems": 1,
+                        "maxItems": 1000
+                      }
+                    },
+                    "required": [
+                      "confidence",
+                      "alternative_explanations"
+                    ]
+                  }
+                }
+              ]
+            },
+            "maxItems": 1000
+          },
+          "interpretation": {
+            "$ref": "#/$defs/hypothesis"
+          },
+          "alternative_explanations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12000
+            },
+            "maxItems": 1000,
+            "minItems": 1
+          },
+          "confidence": {
+            "$ref": "#/$defs/confidence"
+          }
+        },
+        "required": [
+          "id",
+          "theme",
+          "description",
+          "evidence",
+          "interpretation",
+          "alternative_explanations",
+          "confidence"
+        ]
+      },
+      "maxItems": 1000
+    },
+    "emotional_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "frequently_expressed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          },
+          "maxItems": 1000
+        },
+        "less_often_expressed_directly": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          },
+          "maxItems": 1000
+        },
+        "expression_style": {
+          "$ref": "#/$defs/statement"
+        },
+        "regulation_strategies_observed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          },
+          "maxItems": 1000
+        },
+        "affective_range": {
+          "$ref": "#/$defs/statement"
+        }
+      },
+      "required": [
+        "frequently_expressed",
+        "less_often_expressed_directly",
+        "expression_style",
+        "regulation_strategies_observed",
+        "affective_range"
+      ]
+    },
+    "attachment_and_relational_dynamics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "framework_note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "avoidance_indicators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          },
+          "maxItems": 1000
+        },
+        "anxiety_indicators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          },
+          "maxItems": 1000
+        },
+        "working_formulation": {
+          "$ref": "#/$defs/hypothesis"
+        },
+        "recurring_relational_cycle": {
+          "$ref": "#/$defs/hypothesis"
+        },
+        "boundary_style": {
+          "$ref": "#/$defs/statement"
+        }
+      },
+      "required": [
+        "framework_note",
+        "avoidance_indicators",
+        "anxiety_indicators",
+        "working_formulation",
+        "recurring_relational_cycle",
+        "boundary_style"
+      ]
+    },
+    "relationships_by_person": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "relation": {
+            "$ref": "#/$defs/statement"
+          },
+          "dated_reports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "date": {
+                  "$ref": "#/$defs/date"
+                },
+                "report": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 12000
+                },
+                "evidence_type": {
+                  "$ref": "#/$defs/evidenceType"
+                },
+                "confidence": {
+                  "$ref": "#/$defs/confidence"
+                },
+                "alternative_explanations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12000
+                  },
+                  "minItems": 1,
+                  "maxItems": 1000
+                }
+              },
+              "required": [
+                "date",
+                "report",
+                "evidence_type"
+              ],
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "evidence_type": {
+                        "const": "hypothesis"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "confidence": {
+                        "$ref": "#/$defs/confidence"
+                      },
+                      "alternative_explanations": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 12000
+                        },
+                        "minItems": 1,
+                        "maxItems": 1000
+                      }
+                    },
+                    "required": [
+                      "confidence",
+                      "alternative_explanations"
+                    ]
+                  }
+                }
+              ]
+            },
+            "maxItems": 1000,
+            "minItems": 1
+          },
+          "current_status": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "date": {
+                "$ref": "#/$defs/date"
+              },
+              "report": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 12000
+              },
+              "evidence_type": {
+                "$ref": "#/$defs/evidenceType"
+              },
+              "confidence": {
+                "$ref": "#/$defs/confidence"
+              },
+              "alternative_explanations": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 12000
+                },
+                "minItems": 1,
+                "maxItems": 1000
+              }
+            },
+            "required": [
+              "date",
+              "report",
+              "evidence_type"
+            ],
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "evidence_type": {
+                      "const": "hypothesis"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "confidence": {
+                      "$ref": "#/$defs/confidence"
+                    },
+                    "alternative_explanations": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 12000
+                      },
+                      "minItems": 1,
+                      "maxItems": 1000
+                    }
+                  },
+                  "required": [
+                    "confidence",
+                    "alternative_explanations"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "relation",
+          "dated_reports",
+          "current_status"
+        ]
+      },
+      "maxItems": 1000
+    },
+    "identity_and_self_concept": {
+      "$ref": "#/$defs/qualitativeSection"
+    },
+    "cognitive_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "observed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          },
+          "maxItems": 1000
+        },
+        "not_assessable": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000
+        }
+      },
+      "required": [
+        "observed",
+        "not_assessable"
+      ]
+    },
+    "coping_and_defenses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "adaptive_side": {
+            "$ref": "#/$defs/statement"
+          },
+          "cost": {
+            "$ref": "#/$defs/statement"
+          },
+          "evidence_type": {
+            "$ref": "#/$defs/evidenceType"
+          },
+          "confidence": {
+            "$ref": "#/$defs/confidence"
+          },
+          "alternative_explanations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12000
+            },
+            "maxItems": 1000,
+            "minItems": 1
+          }
+        },
+        "required": [
+          "strategy",
+          "adaptive_side",
+          "cost",
+          "evidence_type",
+          "confidence",
+          "alternative_explanations"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "evidence_type": {
+                  "const": "hypothesis"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/$defs/confidence"
+                },
+                "alternative_explanations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12000
+                  },
+                  "maxItems": 1000,
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "confidence",
+                "alternative_explanations"
+              ]
+            }
+          }
+        ]
+      },
+      "maxItems": 1000
+    },
+    "motivational_structure_and_values": {
+      "$ref": "#/$defs/qualitativeSection"
+    },
+    "strengths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "strength": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/statement"
+            },
+            "maxItems": 1000
+          },
+          "evidence_type": {
+            "$ref": "#/$defs/evidenceType"
+          },
+          "confidence": {
+            "$ref": "#/$defs/confidence"
+          },
+          "alternative_explanations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12000
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "strength",
+          "evidence",
+          "evidence_type"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "evidence_type": {
+                  "const": "hypothesis"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/$defs/confidence"
+                },
+                "alternative_explanations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12000
+                  },
+                  "minItems": 1,
+                  "maxItems": 1000
+                }
+              },
+              "required": [
+                "confidence",
+                "alternative_explanations"
+              ]
+            }
+          }
+        ]
+      },
+      "maxItems": 1000
+    },
+    "vulnerabilities_and_stressors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "evidence_type": {
+            "$ref": "#/$defs/evidenceType"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "confidence": {
+            "$ref": "#/$defs/confidence"
+          },
+          "alternative_explanations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12000
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "item",
+          "evidence_type"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "evidence_type": {
+                  "const": "hypothesis"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/$defs/confidence"
+                },
+                "alternative_explanations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12000
+                  },
+                  "minItems": 1,
+                  "maxItems": 1000
+                }
+              },
+              "required": [
+                "confidence",
+                "alternative_explanations"
+              ]
+            }
+          }
+        ]
+      },
+      "maxItems": 1000
+    },
+    "triggers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "trigger": {
+            "$ref": "#/$defs/statement"
+          },
+          "typical_response": {
+            "$ref": "#/$defs/statement"
+          }
+        },
+        "required": [
+          "trigger",
+          "typical_response"
+        ]
+      },
+      "maxItems": 1000
+    },
+    "contradictions_and_tensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tension": {
+            "$ref": "#/$defs/statement"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          }
+        },
+        "required": [
+          "tension",
+          "note"
+        ]
+      },
+      "maxItems": 1000
+    },
+    "communication_and_interaction_patterns": {
+      "$ref": "#/$defs/qualitativeSection"
+    },
+    "trait_language_impressions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "qualitative_only": {
+          "const": true
+        },
+        "impressions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          },
+          "maxItems": 1000
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000
+        }
+      },
+      "required": [
+        "qualitative_only",
+        "impressions",
+        "limitations"
+      ]
+    },
+    "psychiatric_domain_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "assessment_type": {
+          "const": "conversation_observations_only"
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "domain": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 12000
+              },
+              "observations": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/statement"
+                },
+                "maxItems": 1000
+              },
+              "not_assessable": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 12000
+                },
+                "maxItems": 1000
+              }
+            },
+            "required": [
+              "domain",
+              "observations",
+              "not_assessable"
+            ]
+          },
+          "maxItems": 1000
+        },
+        "qualified_assessment_note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        }
+      },
+      "required": [
+        "assessment_type",
+        "domains",
+        "qualified_assessment_note"
+      ]
+    },
+    "roleplay_and_unverified_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "status": {
+            "enum": [
+              "roleplay",
+              "unverified",
+              "reported_by_subject_not_independently_verified",
+              "unknown"
+            ]
+          },
+          "evidence_type": {
+            "$ref": "#/$defs/evidenceType"
+          },
+          "confidence": {
+            "$ref": "#/$defs/confidence"
+          },
+          "alternative_explanations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12000
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "claim",
+          "status",
+          "evidence_type"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "evidence_type": {
+                  "const": "hypothesis"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "confidence": {
+                  "$ref": "#/$defs/confidence"
+                },
+                "alternative_explanations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12000
+                  },
+                  "minItems": 1,
+                  "maxItems": 1000
+                }
+              },
+              "required": [
+                "confidence",
+                "alternative_explanations"
+              ]
+            }
+          }
+        ]
+      },
+      "maxItems": 1000
+    },
+    "guidance_for_interacting": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000
+        }
+      },
+      "required": [
+        "do",
+        "avoid"
+      ]
+    },
+    "open_questions_for_further_exploration": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 12000
+      },
+      "maxItems": 1000
+    },
+    "what_requires_qualified_assessment": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 12000
+      },
+      "maxItems": 1000
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 12000
+      },
+      "maxItems": 1000
+    },
+    "change_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "date": {
+            "$ref": "#/$defs/date"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          }
+        },
+        "required": [
+          "version",
+          "date",
+          "note"
+        ]
+      },
+      "maxItems": 1000
+    }
+  },
+  "required": [
+    "schema",
+    "schema_version",
+    "title",
+    "generated_at",
+    "generated_by",
+    "instructions_for_receiving_model",
+    "subject",
+    "provenance",
+    "evidence_labels",
+    "confidence_scale",
+    "methodology",
+    "executive_summary",
+    "timeline_of_psychologically_relevant_events",
+    "theme_recurrence_by_month",
+    "core_themes",
+    "emotional_profile",
+    "attachment_and_relational_dynamics",
+    "relationships_by_person",
+    "identity_and_self_concept",
+    "cognitive_style",
+    "coping_and_defenses",
+    "motivational_structure_and_values",
+    "strengths",
+    "vulnerabilities_and_stressors",
+    "triggers",
+    "contradictions_and_tensions",
+    "communication_and_interaction_patterns",
+    "trait_language_impressions",
+    "psychiatric_domain_review",
+    "roleplay_and_unverified_claims",
+    "guidance_for_interacting",
+    "open_questions_for_further_exploration",
+    "what_requires_qualified_assessment",
+    "limitations",
+    "change_log"
+  ],
+  "$defs": {
+    "date": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date"
+        },
+        {
+          "type": "string",
+          "format": "date-time"
+        }
+      ]
+    },
+    "evidenceType": {
+      "enum": [
+        "direct_statement",
+        "summarized_history",
+        "observed_pattern",
+        "hypothesis",
+        "unknown"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "high",
+        "moderate",
+        "low"
+      ]
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "evidence_type": {
+          "enum": [
+            "direct_statement",
+            "summarized_history",
+            "observed_pattern",
+            "hypothesis",
+            "unknown"
+          ]
+        },
+        "confidence": {
+          "enum": [
+            "high",
+            "moderate",
+            "low"
+          ]
+        },
+        "alternative_explanations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "text",
+        "evidence_type"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_type": {
+                "const": "hypothesis"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "confidence",
+              "alternative_explanations"
+            ],
+            "properties": {
+              "confidence": {
+                "enum": [
+                  "high",
+                  "moderate",
+                  "low"
+                ]
+              },
+              "alternative_explanations": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 12000
+                },
+                "maxItems": 1000,
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evidence_type": {
+          "const": "hypothesis"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "alternative_explanations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000,
+          "minItems": 1
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      },
+      "required": [
+        "evidence_type",
+        "text",
+        "alternative_explanations",
+        "confidence"
+      ]
+    },
+    "qualitativeSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statement"
+          },
+          "maxItems": 1000
+        },
+        "interpretation": {
+          "$ref": "#/$defs/hypothesis"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000
+          },
+          "maxItems": 1000
+        }
+      },
+      "required": [
+        "observations",
+        "interpretation",
+        "limitations"
+      ]
+    }
+  }
+}

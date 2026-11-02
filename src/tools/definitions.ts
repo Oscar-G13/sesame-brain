@@ -19,7 +19,7 @@ export const toolDefinitions = {
  complete_handoff:{description:'Call when a handoff is finished. The summary goes back to whoever sent it. Only the receiving assistant can complete it.',inputSchema:z.object({id,summary:z.string().min(1).max(7000)})},
  remember:{description:'Store a fact about the user that every connected assistant should know. Overwrites an existing fact with the same key.',inputSchema:z.object({key:z.string().min(1).max(128),value:z.string().min(1).max(8000),tags})},
  forget:{description:'Remove a shared fact by its exact key from this brain.',inputSchema:z.object({key:z.string().min(1).max(128)})},
- save_snapshot:{description:'Save everything you currently know about the user as a backup the user owns. Write it as plain text or markdown. Your 50 newest backups are kept.',inputSchema:z.object({content:z.string().min(1).max(200000),title:z.string().max(256).optional()})}
+ save_snapshot:{description:'Save everything you currently know about the user as a backup the user owns. Write it as plain text or markdown. Snapshots stay until you explicitly clear memory or delete your account.',inputSchema:z.object({content:z.string().min(1).max(200000),title:z.string().max(256).optional()})}
 } as const;
 export type ToolName=keyof typeof toolDefinitions;
 export const READ_TOOLS: readonly string[] = ['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity'] as const;

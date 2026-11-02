@@ -8,6 +8,8 @@ services:
       - "127.0.0.1:${HOST_PORT:-3360}:3000"
     volumes:
       - ./config/clients.json:/app/config/clients.json:ro
+      - workspaces:/var/lib/brain/workspaces
+      - sandbox-socket:/run/brain-sandbox:ro
     depends_on:
       db:
         condition: service_healthy
@@ -48,6 +50,29 @@ services:
       timeout: 5s
       retries: 5
     logging: *logging
+  sandbox:
+    image: sesame-brain-sandbox:${IMAGE_TAG:-2.0.0}
+    build: ./sandbox
+    network_mode: none
+    volumes:
+      - sandbox-socket:/run/brain-sandbox
+    environment:
+      BRAIN_SANDBOX_SOCKET: /run/brain-sandbox/runner.sock
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 192m
+    pids_limit: 32
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('node:http').get({socketPath:'/run/brain-sandbox/runner.sock',path:'/health'},r=>{if(r.statusCode!==200)process.exit(1)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *logging
   testdb:
     profiles: [dev]
     image: postgres:16-bookworm
@@ -78,6 +103,7 @@ services:
       SESSION_SECRET: test-only-session
       TOKEN_PEPPER: test-only-pepper
       NODE_ENV: test
+      BRAIN_WORKSPACE_DIR: /tmp/brain-test-workspaces
     depends_on:
       testdb:
         condition: service_healthy
@@ -87,3 +113,5 @@ services:
     logging: *logging
 volumes:
   postgres:
+  workspaces:
+  sandbox-socket:

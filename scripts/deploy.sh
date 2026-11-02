@@ -13,8 +13,8 @@ if docker inspect sesame-brain-app-1 >/dev/null 2>&1; then
  scripts/backup.sh
  docker inspect -f '{{.Image}}' sesame-brain-app-1 > .previous-image
 fi
-docker compose -p sesame-brain build app
-docker compose -p sesame-brain up -d db app
+docker compose -p sesame-brain build app sandbox
+docker compose -p sesame-brain up -d db sandbox app
 for _ in $(seq 1 60); do
  if curl --max-time 5 --fail --silent http://127.0.0.1:3360/health >/dev/null; then
   python3 - "$IMAGE_TAG" <<'PY'

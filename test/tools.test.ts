@@ -108,11 +108,11 @@ test('handoffs transition only for the recipient, with automatic notes and all w
  const kinds=(await executeTool(a.context,'activity',{limit:100}) as {kind:string}[]).map(e=>e.kind);
  for(const kind of ['handoff_created','handoff_accepted','handoff_completed','note_left','fact_stored','fact_forgotten','notes_read','snapshot_saved'])assert.ok(kinds.includes(kind),kind);
 });
-test('snapshot retention keeps 50 per agent and never prunes another assistant',async()=>{
+test('saving snapshots never autonomously prunes this or another assistant',async()=>{
  const a=await fixture();const c={...a.context,agent_label:'charlie'};
  const other=await executeTool(c,'save_snapshot',{content:'Charlie preserved'}) as {id:string};
  for(let i=0;i<52;i++)await executeTool(a.context,'save_snapshot',{content:'Memory '+i});
- const list=await executeTool(a.context,'list_snapshots',{agent:'maya',limit:100}) as unknown[];assert.equal(list.length,50);
+ const list=await executeTool(a.context,'list_snapshots',{agent:'maya',limit:100}) as unknown[];assert.equal(list.length,52);
  assert.ok((await executeTool(a.context,'get_snapshot',{id:other.id}) as {content:string}).content.includes('Charlie'));
 });
 test('bearer rejects invalid audience, expired and revoked grants, and enforces tool scopes',async()=>{
@@ -144,7 +144,7 @@ test('HTTP transport serves modern SDK and legacy requests with bearer, CORS, 40
   const preflight=await fetch(url,{method:'OPTIONS',headers:{origin:'https://example-client.test','access-control-request-headers':'authorization,content-type'}});
   assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),'*');
   await client.connect(new StreamableHTTPClientTransport(url,{requestInit:{headers:{Authorization:'Bearer '+a.token}}}));
-  const tools=await client.listTools();assert.equal(tools.tools.length,15);
+  const tools=await client.listTools();assert.equal(tools.tools.length,20);
   const me=await client.callTool({name:'whoami',arguments:{}});assert.ok(Array.isArray(me.content));assert.equal(JSON.parse((me.content[0] as {type:string;text:string}).text).agent,'maya');
   const denied=await client.callTool({name:'get_snapshot',arguments:{id:foreign.id}});assert.equal(denied.isError,true);assert.ok(!JSON.stringify(denied).includes('Foreign private backup'));
   const legacy=await fetch(url,{method:'POST',headers:{authorization:'Bearer '+a.token,'content-type':'application/json',accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:5,method:'initialize',params:{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'Legacy fixture',version:'1.0'}}})});
@@ -178,7 +178,7 @@ test('real SDK token A exercises all 15 tools while every B row stays unchanged'
   assert.ok(!JSON.stringify(result).includes(marker),name+' must never return B content');
   if(expectError)return undefined;
   const content=result.content;assert.ok(Array.isArray(content));
-  assert.equal(content[0].type,'text');return JSON.parse((content[0] as {type:string;text:string}).text);
+  assert.equal(content[0].type,'text');const payload=JSON.parse((content[0] as {type:string;text:string}).text);assert.equal(typeof payload.trailer,'string');delete payload.trailer;return ["read_notes","recall","list_snapshots","activity"].includes(name)?payload.items:payload;
  };
  try{
   await client.connect(new StreamableHTTPClientTransport(new URL('http://127.0.0.1:'+address.port+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+a.token}}}));

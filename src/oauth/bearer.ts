@@ -16,7 +16,8 @@ export async function bearerAuth(req:Request,res:Response,next:NextFunction){
  const limit=consumeRate('mcp:'+tokenHash,120,60000);if(!limit.allowed){res.set('Retry-After',String(limit.retry)).status(429).json({error:'rate_limit_exceeded'});return;}
  const scopes=auth.scopes;req.auth=auth;
  const requested=req.body?.method==='tools/call'?req.body?.params?.name:undefined;
- const needed=typeof requested==='string'?(READ_TOOLS.includes(requested)?'brain:read':WRITE_TOOLS.includes(requested)?'brain:write':undefined):undefined;
+ const needed=typeof requested==='string'?((READ_TOOLS.includes(requested)||['job_status','jobs_list'].includes(requested))?'brain:read':(WRITE_TOOLS.includes(requested)||['think','do','end_session'].includes(requested))?'brain:write':undefined):undefined;
+ if(["think","do"].includes(requested)&&!scopes.includes("brain:read")){insufficientScope(res,"brain:read brain:write");return;}
  if(needed&&!scopes.includes(needed)){insufficientScope(res,needed);return;}
  await pool.query('UPDATE grants SET last_used_at=now() WHERE id=$1 AND user_id=$2 AND brain_id=$3',[auth.grant_id,auth.user_id,auth.brain_id]);next();
  }catch(error){next(error);}
