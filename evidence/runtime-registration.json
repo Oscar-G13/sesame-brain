@@ -2,9 +2,10 @@
   "ok": true,
   "registered": [
     "sesame-brain-app-1",
-    "sesame-brain-db-1"
+    "sesame-brain-db-1",
+    "sesame-brain-sandbox-1"
   ],
   "previous_entries_preserved": true,
-  "before_sha256": "59f2632d5e1e8e3de4dd6b41d6dda6f4fbee72f3dfc4cb7e0b3e489859a82958",
-  "after_sha256": "5e21344ca8c84b1a67338fd3870e9c6a3db3d113210e3dd351838a55182d9d81"
+  "before_sha256": "5e21344ca8c84b1a67338fd3870e9c6a3db3d113210e3dd351838a55182d9d81",
+  "after_sha256": "42658752ed279179c6df72a6ccf02441a1258f8ed0acca8509c52d3e2a973362"
 }

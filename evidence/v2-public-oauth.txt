@@ -1,0 +1,8 @@
+PASS 401 challenge → protected-resource metadata → authorization-server discovery
+BEGIN DCR OAuth and shared-memory scenario
+PASS DCR OAuth discovery, registration, login, PKCE, consent and all 20 tools
+PASS DCR two-assistant notes, shared facts, snapshots, handoff lifecycle and activity
+PASS DCR refresh rotates; replay revokes the complete token family
+PASS account deletion cascades across all 17 user-owned tables
+PASS DCR complete JSON export, two-step deletion, and revoked assistant access
+PASS ALL OAuth/MCP verification scenarios

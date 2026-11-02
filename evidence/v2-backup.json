@@ -1,0 +1,85 @@
+{
+  "checked_at_utc": "2026-11-02T20:02:36.165160+00:00",
+  "host": "hermes",
+  "project_root": "/srv/sesame-brain",
+  "backup_command_exit": 0,
+  "backup_stamp_utc": "20261102-200212",
+  "archives": [
+    {
+      "file": "backups/brain-20261102-200212.sql.gz",
+      "exists": true,
+      "bytes": 25594,
+      "mode": "0o600",
+      "owner_uid": 1000,
+      "sha256": "06963c7133f237587a5f4d0be22d97744141d57765b472f1f3311b49861e2690",
+      "gzip_integrity": true,
+      "provider_secret_values_absent": true,
+      "v2_collections_present": true
+    },
+    {
+      "file": "backups/private-config-20261102-200212.tar.gz",
+      "exists": true,
+      "bytes": 729,
+      "mode": "0o600",
+      "owner_uid": 1000,
+      "sha256": "a5f11f7493c61cbc16c388076c40d0acad4dfbc3980b0668aafa0dd1988a4156",
+      "gzip_integrity": true,
+      "tar_integrity": true,
+      "members": 2,
+      "regular_files": 2,
+      "provider_secret_values_absent": true,
+      "config_clients_present": true,
+      "secret_field_status": {
+        "ANTHROPIC_API_KEY": "blank",
+        "OPENAI_API_KEY": "absent",
+        "BRAIN_SMTP_PASS": "absent"
+      },
+      "api_or_delivery_secret_values_omitted": true
+    },
+    {
+      "file": "backups/workspaces-20261102-200212.tar.gz",
+      "exists": true,
+      "bytes": 117,
+      "mode": "0o600",
+      "owner_uid": 1000,
+      "sha256": "93d62d9390d32706e5b204565e120640c66b89ce8a09249a780f728a14343959",
+      "gzip_integrity": true,
+      "tar_integrity": true,
+      "members": 1,
+      "regular_files": 0,
+      "provider_secret_values_absent": true,
+      "workspace_directory_present": true,
+      "safe_paths": true,
+      "symlink_entries": 0
+    }
+  ],
+  "sandbox": {
+    "healthy": true,
+    "user_is_node": true,
+    "network_disabled": true,
+    "read_only_root": true,
+    "all_capabilities_dropped": true,
+    "no_new_privileges": true,
+    "pids_limit": 32,
+    "memory_limit_bytes": 201326592,
+    "host_ports_absent": true,
+    "host_bind_mounts_absent": true,
+    "socket_volume_only": true,
+    "api_and_database_secrets_absent": true,
+    "tmpfs_present": true,
+    "unix_socket_health_from_app": true,
+    "image": "sesame-brain-sandbox:df719d6f2e64"
+  },
+  "provider_validation": {
+    "ready_event_seen": true,
+    "configured_models_count": 2,
+    "all_models_available": true,
+    "all_models_support_search": true
+  },
+  "passed": true,
+  "release": "df719d6f2e64",
+  "application": {
+    "image": "sesame-brain:df719d6f2e64",
+    "healthy": true
+  }
+}

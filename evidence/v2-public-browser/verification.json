@@ -1,0 +1,154 @@
+{
+  "target": "https://brain.arxsable.ai",
+  "synthetic_data_only": true,
+  "owner_data_accessed": false,
+  "provider_requests": 0,
+  "facts_saved": 1,
+  "notes_saved": 1,
+  "consent_checked": true,
+  "consent_grants_created": 0,
+  "account_created": true,
+  "account_deleted": true,
+  "pages": [
+    {
+      "name": "dashboard-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "dashboard-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "memory-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "memory-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "jobs-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "jobs-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "insights-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "insights-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "usage-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "usage-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "files-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "files-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "account-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "account-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "capture-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "capture-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "think-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "think-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "fact-detail-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "memory-search-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "consent-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "dashboard-with-synthetic-content-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "dashboard-with-synthetic-content-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    }
+  ],
+  "console_errors": [],
+  "server_errors": []
+}

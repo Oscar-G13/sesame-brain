@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "at": "2026-11-02T19:58:56.748Z",
+  "protected_and_content_rows": {
+    "users": {
+      "before": 1,
+      "originals_unchanged": 1
+    },
+    "brains": {
+      "before": 1,
+      "originals_unchanged": 1
+    },
+    "sessions": {
+      "before": 2,
+      "originals_unchanged": 2
+    },
+    "grants": {
+      "before": 1,
+      "originals_unchanged": 1
+    },
+    "access_tokens": {
+      "before": 4,
+      "originals_unchanged": 4
+    },
+    "refresh_tokens": {
+      "before": 4,
+      "originals_unchanged": 4
+    },
+    "notes": {
+      "before": 0,
+      "originals_unchanged": 0
+    },
+    "facts": {
+      "before": 0,
+      "originals_unchanged": 0
+    },
+    "handoffs": {
+      "before": 0,
+      "originals_unchanged": 0
+    },
+    "snapshots": {
+      "before": 1,
+      "originals_unchanged": 1
+    },
+    "activity": {
+      "before": 1,
+      "originals_unchanged": 1
+    }
+  }
+}
