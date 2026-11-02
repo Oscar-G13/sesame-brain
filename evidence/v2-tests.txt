@@ -1,0 +1,631 @@
+ Container sesame-brain-testdb-1 Running 
+ Container sesame-brain-testdb-1 Waiting 
+ Container sesame-brain-testdb-1 Healthy 
+ Container sesame-brain-dev-run-76f4ae06e3cb Creating 
+ Container sesame-brain-dev-run-76f4ae06e3cb Created 
+
+> sesame-brain@2.0.0 test
+> tsx --test test/*.test.ts
+
+TAP version 13
+# {"time":"2026-11-02T19:40:26.758Z","method":"POST","path":"/account/grants/:id/revoke","status":403,"duration_ms":8}
+# {"time":"2026-11-02T19:40:26.764Z","method":"POST","path":"/account/grants/:id/rename","status":303,"duration_ms":3}
+# {"time":"2026-11-02T19:40:26.766Z","method":"POST","path":"/account/grants/:id/revoke","status":303,"duration_ms":1}
+# {"time":"2026-11-02T19:40:26.774Z","method":"GET","path":"/account/export","status":200,"duration_ms":5}
+# {"time":"2026-11-02T19:40:26.777Z","method":"POST","path":"/account/grants/:id/rename","status":303,"duration_ms":2}
+# {"time":"2026-11-02T19:40:26.781Z","method":"POST","path":"/account/grants/:id/revoke","status":303,"duration_ms":2}
+# {"time":"2026-11-02T19:40:26.786Z","method":"POST","path":"/account/delete","status":400,"duration_ms":4}
+# {"time":"2026-11-02T19:40:26.792Z","method":"POST","path":"/account/delete","status":303,"duration_ms":5}
+# {"time":"2026-11-02T19:40:26.795Z","method":"GET","path":"/account","status":302,"duration_ms":1}
+# Subtest: real account session cannot rename/revoke/export/delete another user; own actions succeed
+ok 1 - real account session cannot rename/revoke/export/delete another user; own actions succeed
+  ---
+  duration_ms: 79.38596
+  type: 'test'
+  ...
+# Subtest: context uses strict user+brain and agent visibility while honoring every priority
+ok 2 - context uses strict user+brain and agent visibility while honoring every priority
+  ---
+  duration_ms: 26.888873
+  type: 'test'
+  ...
+# Subtest: oversized Unicode context is bounded conservatively and truncates from the bottom
+ok 3 - oversized Unicode context is bounded conservatively and truncates from the bottom
+  ---
+  duration_ms: 2.706949
+  type: 'test'
+  ...
+# Subtest: context cache is isolated by session and invalidated by insert/update/delete triggers
+ok 4 - context cache is isolated by session and invalidated by insert/update/delete triggers
+  ---
+  duration_ms: 14.124996
+  type: 'test'
+  ...
+# Subtest: dry-run never surfaces jobs and delivery acknowledges only fully included results for this assistant
+ok 5 - dry-run never surfaces jobs and delivery acknowledges only fully included results for this assistant
+  ---
+  duration_ms: 6.639576
+  type: 'test'
+  ...
+# Subtest: sessions derive identity from token+agent, reuse before30minutes, and renew after idle
+ok 6 - sessions derive identity from token+agent, reuse before30minutes, and renew after idle
+  ---
+  duration_ms: 4.545033
+  type: 'test'
+  ...
+# Subtest: first touch briefings are cached, scoped, word-bounded and acknowledge explicit delivered jobs only
+ok 7 - first touch briefings are cached, scoped, word-bounded and acknowledge explicit delivered jobs only
+  ---
+  duration_ms: 5.907655
+  type: 'test'
+  ...
+# Subtest: trailers count only own jobs and remind about zero writes after five minutes under20words
+ok 8 - trailers count only own jobs and remind about zero writes after five minutes under20words
+  ---
+  duration_ms: 4.690886
+  type: 'test'
+  ...
+# Subtest: read-only and empty sessions close silently without model work or content writes
+ok 9 - read-only and empty sessions close silently without model work or content writes
+  ---
+  duration_ms: 3.497481
+  type: 'test'
+  ...
+# Subtest: missing AI provider honestly leaves a writing session pending without fabricating a snapshot
+ok 10 - missing AI provider honestly leaves a writing session pending without fabricating a snapshot
+  ---
+  duration_ms: 3.198621
+  type: 'test'
+  ...
+# Subtest: idle sweeper and explicit rollup save attributed auto snapshots without pruning existing data
+ok 11 - idle sweeper and explicit rollup save attributed auto snapshots without pruning existing data
+  ---
+  duration_ms: 20.852056
+  type: 'test'
+  ...
+# Subtest: purge during in-flight summarization cannot recreate memory or sessions
+ok 12 - purge during in-flight summarization cannot recreate memory or sessions
+  ---
+  duration_ms: 4.526357
+  type: 'test'
+  ...
+# Subtest: a resumed conversation invalidates an in-flight quiet rollup and stays open
+ok 13 - a resumed conversation invalidates an in-flight quiet rollup and stays open
+  ---
+  duration_ms: 6.234036
+  type: 'test'
+  ...
+# Subtest: operator dry-run CLI prints a scoped seeded pack within budget without surfacing results
+ok 14 - operator dry-run CLI prints a scoped seeded pack within budget without surfacing results
+  ---
+  duration_ms: 124.708999
+  type: 'test'
+  ...
+# Subtest: dashboard sessions retain browser-session authorization and stop summarizing after signout
+ok 15 - dashboard sessions retain browser-session authorization and stop summarizing after signout
+  ---
+  duration_ms: 7.974486
+  type: 'test'
+  ...
+# Subtest: revoked grants and read-only contexts cannot create delayed snapshots
+ok 16 - revoked grants and read-only contexts cannot create delayed snapshots
+  ---
+  duration_ms: 3.711661
+  type: 'test'
+  ...
+# Subtest: automatic snapshot creation never prunes the existing snapshot collection
+ok 17 - automatic snapshot creation never prunes the existing snapshot collection
+  ---
+  duration_ms: 13.504934
+  type: 'test'
+  ...
+# Subtest: context includes only this assistant session writes, and tracking writes invalidate cached packs
+ok 18 - context includes only this assistant session writes, and tracking writes invalidate cached packs
+  ---
+  duration_ms: 7.457107
+  type: 'test'
+  ...
+# Subtest: a fully included completed-job handoff acknowledges delivery even when its detailed result is over budget
+ok 19 - a fully included completed-job handoff acknowledges delivery even when its detailed result is over budget
+  ---
+  duration_ms: 2.938875
+  type: 'test'
+  ...
+# {"time":"2026-11-02T19:40:27.582Z","method":"GET","path":"unmatched","status":302,"duration_ms":2}
+# {"time":"2026-11-02T19:40:27.590Z","method":"GET","path":"/login","status":200,"duration_ms":5}
+# Subtest: dashboard requires login and the default form returns to the dashboard
+ok 20 - dashboard requires login and the default form returns to the dashboard
+  ---
+  duration_ms: 38.096504
+  type: 'test'
+  ...
+# {"time":"2026-11-02T19:40:27.616Z","method":"GET","path":"/","status":200,"duration_ms":23}
+# {"time":"2026-11-02T19:40:27.619Z","method":"GET","path":"unmatched","status":404,"duration_ms":2}
+# {"time":"2026-11-02T19:40:27.621Z","method":"GET","path":"unmatched","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.622Z","method":"GET","path":"unmatched","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.623Z","method":"GET","path":"unmatched","status":404,"duration_ms":0}
+# {"time":"2026-11-02T19:40:27.625Z","method":"GET","path":"unmatched","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.626Z","method":"GET","path":"unmatched","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.628Z","method":"GET","path":"unmatched","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.629Z","method":"GET","path":"unmatched","status":404,"duration_ms":0}
+# {"time":"2026-11-02T19:40:27.630Z","method":"GET","path":"unmatched","status":404,"duration_ms":0}
+# {"time":"2026-11-02T19:40:27.631Z","method":"GET","path":"unmatched","status":404,"duration_ms":0}
+# {"time":"2026-11-02T19:40:27.633Z","method":"GET","path":"/memory/:collection/:id","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.634Z","method":"GET","path":"/memory/:collection/:id","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.636Z","method":"GET","path":"/jobs/:id","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.637Z","method":"GET","path":"/jobs/:id","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.640Z","method":"GET","path":"/memory","status":200,"duration_ms":3}
+# {"time":"2026-11-02T19:40:27.644Z","method":"GET","path":"/memory","status":200,"duration_ms":3}
+# Subtest: every dashboard collection and detail is scoped to the chosen owned brain
+ok 21 - every dashboard collection and detail is scoped to the chosen owned brain
+  ---
+  duration_ms: 53.061213
+  type: 'test'
+  ...
+# {"time":"2026-11-02T19:40:27.665Z","method":"GET","path":"/account/export","status":200,"duration_ms":20}
+# Subtest: new export collections omit authentication hashes and internal session keys
+ok 22 - new export collections omit authentication hashes and internal session keys
+  ---
+  duration_ms: 21.245462
+  type: 'test'
+  ...
+# {"time":"2026-11-02T19:40:27.668Z","method":"GET","path":"/capture","status":200,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.677Z","method":"POST","path":"/capture","status":403,"duration_ms":6}
+# {"time":"2026-11-02T19:40:27.681Z","method":"POST","path":"/capture","status":303,"duration_ms":4}
+# Subtest: capture validates CSRF and saves a real note or fact in only the selected brain
+ok 23 - capture validates CSRF and saves a real note or fact in only the selected brain
+  ---
+  duration_ms: 16.189502
+  type: 'test'
+  ...
+# {"time":"2026-11-02T19:40:27.685Z","method":"GET","path":"/files","status":200,"duration_ms":2}
+# {"time":"2026-11-02T19:40:27.688Z","method":"GET","path":"/files/:name","status":200,"duration_ms":2}
+# {"time":"2026-11-02T19:40:27.690Z","method":"GET","path":"/files/:name","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.692Z","method":"GET","path":"/files/:name","status":404,"duration_ms":2}
+# {"time":"2026-11-02T19:40:27.693Z","method":"GET","path":"/files/:name","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.694Z","method":"GET","path":"unmatched","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.695Z","method":"GET","path":"/files/:name","status":404,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.697Z","method":"GET","path":"/files","status":200,"duration_ms":2}
+# Subtest: workspace downloads stay inside the selected brain and never follow symbolic links or render HTML
+ok 24 - workspace downloads stay inside the selected brain and never follow symbolic links or render HTML
+  ---
+  duration_ms: 15.514779
+  type: 'test'
+  ...
+# {"time":"2026-11-02T19:40:27.700Z","method":"GET","path":"/jobs/:id","status":200,"duration_ms":2}
+# {"time":"2026-11-02T19:40:27.701Z","method":"POST","path":"/jobs/:id/cancel","status":403,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.705Z","event":"request_error","code":"bad_request"}
+# {"time":"2026-11-02T19:40:27.705Z","method":"POST","path":"/jobs/:id/cancel","status":404,"duration_ms":3}
+# {"time":"2026-11-02T19:40:27.708Z","event":"request_error","code":"bad_request"}
+# {"time":"2026-11-02T19:40:27.708Z","method":"POST","path":"/jobs/:id/cancel","status":404,"duration_ms":3}
+# {"time":"2026-11-02T19:40:27.712Z","method":"POST","path":"/jobs/:id/cancel","status":303,"duration_ms":4}
+# Subtest: stopping background work requires CSRF and the correct owned brain
+ok 25 - stopping background work requires CSRF and the correct owned brain
+  ---
+  duration_ms: 15.224405
+  type: 'test'
+  ...
+# {"time":"2026-11-02T19:40:27.715Z","method":"GET","path":"/clear","status":200,"duration_ms":1}
+# {"time":"2026-11-02T19:40:27.717Z","method":"POST","path":"/clear","status":400,"duration_ms":2}
+# {"time":"2026-11-02T19:40:27.720Z","method":"POST","path":"/clear","status":303,"duration_ms":3}
+# {"time":"2026-11-02T19:40:27.724Z","method":"GET","path":"/account","status":200,"duration_ms":2}
+# {"time":"2026-11-02T19:40:27.729Z","method":"GET","path":"/","status":200,"duration_ms":5}
+# Subtest: typed content reset clears selected brain content and workspaces while preserving credentials, sessions and grants
+ok 26 - typed content reset clears selected brain content and workspaces while preserving credentials, sessions and grants
+  ---
+  duration_ms: 16.269893
+  type: 'test'
+  ...
+# Subtest: think uses scoped longitudinal context, writes a requested fact, records usage and final answer
+ok 27 - think uses scoped longitudinal context, writes a requested fact, records usage and final answer
+  ---
+  duration_ms: 43.492952
+  type: 'test'
+  ...
+# Subtest: do acknowledges quickly, persists completion note/handoff, exposes only own jobs
+ok 28 - do acknowledges quickly, persists completion note/handoff, exposes only own jobs
+  ---
+  duration_ms: 16.806688
+  type: 'test'
+  ...
+# Subtest: quick timeout returns partial speech and queues persistent continuation
+ok 29 - quick timeout returns partial speech and queues persistent continuation
+  ---
+  duration_ms: 8017.739804
+  type: 'test'
+  ...
+# Subtest: tiny remaining daily budget refuses think and do without calling provider
+ok 30 - tiny remaining daily budget refuses think and do without calling provider
+  ---
+  duration_ms: 7.75792
+  type: 'test'
+  ...
+# Subtest: read-only and mismatched brain contexts cannot reason or queue work
+ok 31 - read-only and mismatched brain contexts cannot reason or queue work
+  ---
+  duration_ms: 1.588836
+  type: 'test'
+  ...
+# Subtest: interrupted job is marked failed, never left running
+ok 32 - interrupted job is marked failed, never left running
+  ---
+  duration_ms: 4.542469
+  type: 'test'
+  ...
+# Subtest: purge while model is running cancels late memory and job-result writes
+ok 33 - purge while model is running cancels late memory and job-result writes
+  ---
+  duration_ms: 16.373727
+  type: 'test'
+  ...
+# Subtest: dossier schema validates all sections and rejects unsupported evidence/confidence, diagnoses and missing hypothesis alternatives
+ok 34 - dossier schema validates all sections and rejects unsupported evidence/confidence, diagnoses and missing hypothesis alternatives
+  ---
+  duration_ms: 27.324068
+  type: 'test'
+  ...
+# Subtest: dated relationship status must exactly preserve the latest dated report
+ok 35 - dated relationship status must exactly preserve the latest dated report
+  ---
+  duration_ms: 0.437339
+  type: 'test'
+  ...
+# Subtest: diff is deterministic and tracks themes, confidence, relationships and audit flags with exactly 100 spoken words
+ok 36 - diff is deterministic and tracks themes, confidence, relationships and audit flags with exactly 100 spoken words
+  ---
+  duration_ms: 4.56498
+  type: 'test'
+  ...
+# Subtest: Los Angeles nightly clock follows daylight saving time and repeated hours
+ok 37 - Los Angeles nightly clock follows daylight saving time and repeated hours
+  ---
+  duration_ms: 4.596609
+  type: 'test'
+  ...
+# {"event":"nightly_completed","user_id":"13ee519a-ea74-4965-a5d0-b6619f8f754d","brain_id":"1134f670-d59b-470b-8e78-2532cf9a8254","run_id":"7e2b5484-223c-4a73-b00b-6ab8cf10c96e","tokens_used":90,"auditor_provider":"anthropic"}
+# Subtest: nightly retries one invalid evidence label then atomically writes formulation, audit and diff attributed to brain-nightly
+ok 38 - nightly retries one invalid evidence label then atomically writes formulation, audit and diff attributed to brain-nightly
+  ---
+  duration_ms: 10.789178
+  type: 'test'
+  ...
+# {"event":"nightly_completed","user_id":"f84a83cc-d600-45b4-9f41-95180515ddff","brain_id":"412b98fc-01e9-4fd6-be2e-cbec391b9a18","run_id":"5f5f8380-20a1-4378-bbdb-2787df55336b","tokens_used":400,"auditor_provider":"openai"}
+# Subtest: concurrent nightly claims make exactly one run and configured OpenAI auditor receives separate audit prompt
+ok 39 - concurrent nightly claims make exactly one run and configured OpenAI auditor receives separate audit prompt
+  ---
+  duration_ms: 6.985934
+  type: 'test'
+  ...
+# {"event":"nightly_failed","user_id":"7b6620fe-174a-477c-b5e9-7e1c67043dbd","brain_id":"ad5b3779-76d4-42b0-ac97-ad19453b05cb","run_id":"b8cd0459-1ff6-4528-bf34-8b864128de4c","error":"invalid_model_output","tokens_used":4}
+# Subtest: invalid output twice fails without partial snapshot artifacts
+ok 40 - invalid output twice fails without partial snapshot artifacts
+  ---
+  duration_ms: 4.738155
+  type: 'test'
+  ...
+# {"event":"nightly_skipped","user_id":"d89428c2-08ec-4bbe-8e9f-a44babf7f599","brain_id":"d8f09dcc-33cb-4aad-a1e0-62f3243c4224","run_id":"323fe93e-77c5-42d5-ba39-2ec77cdcf0c5","error":"budget_exhausted","tokens_used":0}
+# {"event":"nightly_skipped","user_id":"a0bc18b4-b2a8-4894-9275-ed1cb382ffd5","brain_id":"9c1c4e71-e33d-4656-b460-eb321b10cecc","run_id":"e702ce48-29f7-4f9b-acb4-10972704e222","error":"budget_exhausted","tokens_used":200}
+# Subtest: daily or nightly token budget exhaustion skips the run without snapshots
+ok 41 - daily or nightly token budget exhaustion skips the run without snapshots
+  ---
+  duration_ms: 5.305588
+  type: 'test'
+  ...
+# Subtest: purge during generation prevents every late snapshot write
+ok 42 - purge during generation prevents every late snapshot write
+  ---
+  duration_ms: 3.357037
+  type: 'test'
+  ...
+# Subtest: dry run only previews and never calls a model, claims a run or writes snapshots
+ok 43 - dry run only previews and never calls a model, claims a run or writes snapshots
+  ---
+  duration_ms: 2.177649
+  type: 'test'
+  ...
+# {"event":"nightly_completed","user_id":"5f8772ee-2919-4bcb-98f0-dff897409703","brain_id":"abc4be90-7248-4ecb-bc80-495f7495d257","run_id":"d9c98c7f-abce-42bd-a817-6632b7ac6f89","tokens_used":400,"auditor_provider":"anthropic"}
+# Subtest: nightly sources never cross user or brain boundaries
+ok 44 - nightly sources never cross user or brain boundaries
+  ---
+  duration_ms: 5.975963
+  type: 'test'
+  ...
+# Subtest: disabled providers and pre-schedule hours make scheduler no-op
+ok 45 - disabled providers and pre-schedule hours make scheduler no-op
+  ---
+  duration_ms: 0.374852
+  type: 'test'
+  ...
+# Subtest: PKCE S256 uses RFC 7636 vector and rejects wrong/malformed verifier
+ok 46 - PKCE S256 uses RFC 7636 vector and rejects wrong/malformed verifier
+  ---
+  duration_ms: 11.441911
+  type: 'test'
+  ...
+# Subtest: Opaque tokens have 256 bits and only SHA-256 hash is persisted
+ok 47 - Opaque tokens have 256 bits and only SHA-256 hash is persisted
+  ---
+  duration_ms: 0.206747
+  type: 'test'
+  ...
+# Subtest: audience canonicalization rejects foreign resources
+ok 48 - audience canonicalization rejects foreign resources
+  ---
+  duration_ms: 0.18119
+  type: 'test'
+  ...
+# Subtest: redirects require exact match except loopback port only
+ok 49 - redirects require exact match except loopback port only
+  ---
+  duration_ms: 0.225562
+  type: 'test'
+  ...
+# Subtest: CIMD validates exact client identity, required fields and registered redirect URIs
+ok 50 - CIMD validates exact client identity, required fields and registered redirect URIs
+  ---
+  duration_ms: 0.324608
+  type: 'test'
+  ...
+# Subtest: CIMD blocks private, loopback, link-local, CGNAT and mapped addresses after DNS
+ok 51 - CIMD blocks private, loopback, link-local, CGNAT and mapped addresses after DNS
+  ---
+  duration_ms: 1.525877
+  type: 'test'
+  ...
+# Subtest: CIMD rejects oversized body and invalid JSON
+ok 52 - CIMD rejects oversized body and invalid JSON
+  ---
+  duration_ms: 0.164838
+  type: 'test'
+  ...
+# Subtest: CIMD stream caps at 64 KiB, pins validated DNS address, and does not follow redirects
+ok 53 - CIMD stream caps at 64 KiB, pins validated DNS address, and does not follow redirects
+  ---
+  duration_ms: 0.848599
+  type: 'test'
+  ...
+# Subtest: CIMD absolute deadline aborts slow streaming and prevents post-deadline DNS fetch
+ok 54 - CIMD absolute deadline aborts slow streaming and prevents post-deadline DNS fetch
+  ---
+  duration_ms: 56.253182
+  type: 'test'
+  ...
+# Subtest: agent labels use lowercase letters digits hyphens and reserve all
+ok 55 - agent labels use lowercase letters digits hyphens and reserve all
+  ---
+  duration_ms: 0.371205
+  type: 'test'
+  ...
+# Subtest: authorization code binds client/redirect/PKCE/audience and replay revokes issued grant
+ok 56 - authorization code binds client/redirect/PKCE/audience and replay revokes issued grant
+  ---
+  duration_ms: 11.416833
+  type: 'test'
+  ...
+# Subtest: refresh rotates atomically; reuse revokes entire family and outstanding access tokens
+ok 57 - refresh rotates atomically; reuse revokes entire family and outstanding access tokens
+  ---
+  duration_ms: 6.77501
+  type: 'test'
+  ...
+# Subtest: revocation cannot revoke another client token; valid revoke invalidates access and refresh
+ok 58 - revocation cannot revoke another client token; valid revoke invalidates access and refresh
+  ---
+  duration_ms: 4.421792
+  type: 'test'
+  ...
+# {"event":"oauth_error","path":"/authorize","error":"invalid_redirect_uri","grant_type":"other","client_id_shape":"opaque"}
+# Subtest: OAuth HTTP rejects unregistered redirects and missing/plain PKCE without unsafe redirects
+ok 59 - OAuth HTTP rejects unregistered redirects and missing/plain PKCE without unsafe redirects
+  ---
+  duration_ms: 23.031217
+  type: 'test'
+  ...
+# {"event":"oauth_error","path":"/token","error":"invalid_client","grant_type":"authorization_code","client_id_shape":"opaque"}
+# {"event":"oauth_error","path":"/token","error":"invalid_client","grant_type":"authorization_code","client_id_shape":"opaque"}
+# {"event":"oauth_error","path":"/token","error":"invalid_client","grant_type":"authorization_code","client_id_shape":"opaque"}
+# {"event":"oauth_error","path":"/token","error":"invalid_client","grant_type":"authorization_code","client_id_shape":"opaque"}
+# Subtest: DCR issues secrets only for declared confidential methods and token endpoint enforces basic/post authentication
+ok 60 - DCR issues secrets only for declared confidential methods and token endpoint enforces basic/post authentication
+  ---
+  duration_ms: 32.996281
+  type: 'test'
+  ...
+# Subtest: account mutation lock prevents authorization or refresh issuance after signout revocation
+ok 61 - account mutation lock prevents authorization or refresh issuance after signout revocation
+  ---
+  duration_ms: 37.633046
+  type: 'test'
+  ...
+# Subtest: Bearer HTTP scheme names are case-insensitive while token values remain case-sensitive
+ok 62 - Bearer HTTP scheme names are case-insensitive while token values remain case-sensitive
+  ---
+  duration_ms: 4.397517
+  type: 'test'
+  ...
+# Subtest: provider SSE parser handles arbitrary CRLF/UTF-8 boundaries, cumulative cached usage and streamed tool JSON
+ok 63 - provider SSE parser handles arbitrary CRLF/UTF-8 boundaries, cumulative cached usage and streamed tool JSON
+  ---
+  duration_ms: 18.839035
+  type: 'test'
+  ...
+# Subtest: aborting a pending provider stream returns partial text and known usage without waiting for a further chunk
+ok 64 - aborting a pending provider stream returns partial text and known usage without waiting for a further chunk
+  ---
+  duration_ms: 4.849132
+  type: 'test'
+  ...
+# Subtest: provider fetch is mocked: API requests never forward credentials in JSON and forbid redirects
+ok 65 - provider fetch is mocked: API requests never forward credentials in JSON and forbid redirects
+  ---
+  duration_ms: 0.5926
+  type: 'test'
+  ...
+# Subtest: global daily budget is atomic across brains and survives user-content purge
+ok 66 - global daily budget is atomic across brains and survives user-content purge
+  ---
+  duration_ms: 15.744659
+  type: 'test'
+  ...
+# Subtest: settlement is idempotent, epoch-safe and charges aggregate cost after purge without restoring personal usage
+ok 67 - settlement is idempotent, epoch-safe and charges aggregate cost after purge without restoring personal usage
+  ---
+  duration_ms: 4.770255
+  type: 'test'
+  ...
+# Subtest: usage days use Los Angeles rather than UTC midnight
+ok 68 - usage days use Los Angeles rather than UTC midnight
+  ---
+  duration_ms: 7.995155
+  type: 'test'
+  ...
+# Subtest: model tools independently enforce scope, tenant, live grant and private-note visibility
+ok 69 - model tools independently enforce scope, tenant, live grant and private-note visibility
+  ---
+  duration_ms: 7.855283
+  type: 'test'
+  ...
+# Subtest: URL fetch blocks private/mixed DNS, pins public address, refuses redirects and caps streamed bodies
+ok 70 - URL fetch blocks private/mixed DNS, pins public address, refuses redirects and caps streamed bodies
+  ---
+  duration_ms: 2.642228
+  type: 'test'
+  ...
+# Subtest: URL absolute deadline rejects slow DNS before making any request
+ok 71 - URL absolute deadline rejects slow DNS before making any request
+  ---
+  duration_ms: 40.188823
+  type: 'test'
+  ...
+# Subtest: artifact writes reject traversal, symlinks, overlong UTF-8 data and enforce quota while allowing replacement
+ok 72 - artifact writes reject traversal, symlinks, overlong UTF-8 data and enforce quota while allowing replacement
+  ---
+  duration_ms: 47.533831
+  type: 'test'
+  ...
+# Subtest: Unix sandbox executes with empty inherited secrets, denies ordinary outside-file/child access, bounds output and serializes jobs
+ok 73 - Unix sandbox executes with empty inherited secrets, denies ordinary outside-file/child access, bounds output and serializes jobs
+  ---
+  duration_ms: 324.493334
+  type: 'test'
+  ...
+# Subtest: every tool rejects a token identity combined with another user brain
+ok 74 - every tool rejects a token identity combined with another user brain
+  ---
+  duration_ms: 31.74605
+  type: 'test'
+  ...
+# Subtest: real token A cannot discover or mutate user B data through any tool or guessed ids
+ok 75 - real token A cannot discover or mutate user B data through any tool or guessed ids
+  ---
+  duration_ms: 25.352686
+  type: 'test'
+  ...
+# Subtest: broadcast notes track reading per assistant and targeted notes stay private
+ok 76 - broadcast notes track reading per assistant and targeted notes stay private
+  ---
+  duration_ms: 6.981336
+  type: 'test'
+  ...
+# Subtest: handoffs transition only for the recipient, with automatic notes and all write activity
+ok 77 - handoffs transition only for the recipient, with automatic notes and all write activity
+  ---
+  duration_ms: 8.183217
+  type: 'test'
+  ...
+# Subtest: saving snapshots never autonomously prunes this or another assistant
+ok 78 - saving snapshots never autonomously prunes this or another assistant
+  ---
+  duration_ms: 32.825882
+  type: 'test'
+  ...
+# Subtest: bearer rejects invalid audience, expired and revoked grants, and enforces tool scopes
+ok 79 - bearer rejects invalid audience, expired and revoked grants, and enforces tool scopes
+  ---
+  duration_ms: 4.201509
+  type: 'test'
+  ...
+# Subtest: database rejects content rows assigned to a mismatched user and brain
+ok 80 - database rejects content rows assigned to a mismatched user and brain
+  ---
+  duration_ms: 2.084565
+  type: 'test'
+  ...
+# Subtest: HTTP transport serves modern SDK and legacy requests with bearer, CORS, 403 scopes and 405 session methods
+ok 81 - HTTP transport serves modern SDK and legacy requests with bearer, CORS, 403 scopes and 405 session methods
+  ---
+  duration_ms: 89.903418
+  type: 'test'
+  ...
+# Subtest: real SDK token A exercises all 15 tools while every B row stays unchanged
+ok 82 - real SDK token A exercises all 15 tools while every B row stays unchanged
+  ---
+  duration_ms: 117.250389
+  type: 'test'
+  ...
+# Subtest: HTTP accepts and retrieves the full 200000-character CJK snapshot within a one MiB body limit
+ok 83 - HTTP accepts and retrieves the full 200000-character CJK snapshot within a one MiB body limit
+  ---
+  duration_ms: 36.425624
+  type: 'test'
+  ...
+# {"time":"2026-11-02T19:40:38.582Z","method":"GET","path":"/signup","status":200,"duration_ms":6}
+# {"time":"2026-11-02T19:40:38.593Z","method":"POST","path":"/signup","status":403,"duration_ms":5}
+# {"time":"2026-11-02T19:40:38.707Z","method":"POST","path":"/signup","status":303,"duration_ms":112}
+# {"time":"2026-11-02T19:40:38.719Z","method":"GET","path":"/account","status":200,"duration_ms":10}
+# {"time":"2026-11-02T19:40:38.722Z","method":"POST","path":"/account/grants/:id/rename","status":303,"duration_ms":2}
+# {"time":"2026-11-02T19:40:38.725Z","method":"GET","path":"/account/password","status":200,"duration_ms":1}
+# {"time":"2026-11-02T19:40:38.912Z","method":"POST","path":"/account/password","status":303,"duration_ms":186}
+# {"time":"2026-11-02T19:40:38.915Z","method":"GET","path":"/account","status":200,"duration_ms":1}
+# {"time":"2026-11-02T19:40:38.919Z","method":"POST","path":"/account/signout-everywhere","status":303,"duration_ms":2}
+# {"time":"2026-11-02T19:40:38.921Z","method":"GET","path":"/login","status":200,"duration_ms":1}
+# {"time":"2026-11-02T19:40:39.016Z","method":"POST","path":"/login","status":303,"duration_ms":94}
+# {"time":"2026-11-02T19:40:39.021Z","method":"GET","path":"/account/export","status":200,"duration_ms":4}
+# {"time":"2026-11-02T19:40:39.024Z","method":"GET","path":"/account/delete","status":200,"duration_ms":1}
+# {"time":"2026-11-02T19:40:39.025Z","method":"POST","path":"/account/delete","status":403,"duration_ms":1}
+# {"time":"2026-11-02T19:40:39.027Z","method":"POST","path":"/account/delete","status":400,"duration_ms":1}
+# {"time":"2026-11-02T19:40:39.032Z","method":"POST","path":"/account/delete","status":303,"duration_ms":5}
+# Subtest: account forms enforce CSRF, update grant identity, invalidate pending codes, revoke sessions, and delete live data
+ok 84 - account forms enforce CSRF, update grant identity, invalidate pending codes, revoke sessions, and delete live data
+  ---
+  duration_ms: 476.490915
+  type: 'test'
+  ...
+# Subtest: password checks minimum length and bundled common passwords
+ok 85 - password checks minimum length and bundled common passwords
+  ---
+  duration_ms: 0.435075
+  type: 'test'
+  ...
+# Subtest: return URL keeps redirects on this origin
+ok 86 - return URL keeps redirects on this origin
+  ---
+  duration_ms: 0.102482
+  type: 'test'
+  ...
+# Subtest: agent labels reserve broadcast and enforce slug length
+ok 87 - agent labels reserve broadcast and enforce slug length
+  ---
+  duration_ms: 0.155351
+  type: 'test'
+  ...
+# Subtest: consent renders all identities unselected and escapes client-controlled metadata
+ok 88 - consent renders all identities unselected and escapes client-controlled metadata
+  ---
+  duration_ms: 1.530818
+  type: 'test'
+  ...
+1..88
+# tests 88
+# suites 0
+# pass 88
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12804.178374
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

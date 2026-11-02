@@ -1,0 +1,248 @@
+ Container sesame-brain-testdb-1 Running 
+ Container sesame-brain-testdb-1 Waiting 
+ Container sesame-brain-testdb-1 Healthy 
+ Container sesame-brain-dev-run-9604fd55b2c9 Creating 
+ Container sesame-brain-dev-run-9604fd55b2c9 Created 
+TAP version 13
+# Subtest: context uses strict user+brain and agent visibility while honoring every priority
+ok 1 - context uses strict user+brain and agent visibility while honoring every priority
+  ---
+  duration_ms: 30.621494
+  type: 'test'
+  ...
+# Subtest: oversized Unicode context is bounded conservatively and truncates from the bottom
+ok 2 - oversized Unicode context is bounded conservatively and truncates from the bottom
+  ---
+  duration_ms: 2.785257
+  type: 'test'
+  ...
+# Subtest: context cache is isolated by session and invalidated by insert/update/delete triggers
+ok 3 - context cache is isolated by session and invalidated by insert/update/delete triggers
+  ---
+  duration_ms: 11.594046
+  type: 'test'
+  ...
+# Subtest: dry-run never surfaces jobs and delivery acknowledges only fully included results for this assistant
+ok 4 - dry-run never surfaces jobs and delivery acknowledges only fully included results for this assistant
+  ---
+  duration_ms: 6.653502
+  type: 'test'
+  ...
+# Subtest: sessions derive identity from token+agent, reuse before30minutes, and renew after idle
+ok 5 - sessions derive identity from token+agent, reuse before30minutes, and renew after idle
+  ---
+  duration_ms: 4.42078
+  type: 'test'
+  ...
+# Subtest: first touch briefings are cached, scoped, word-bounded and acknowledge explicit delivered jobs only
+ok 6 - first touch briefings are cached, scoped, word-bounded and acknowledge explicit delivered jobs only
+  ---
+  duration_ms: 6.323544
+  type: 'test'
+  ...
+# Subtest: trailers count only own jobs and remind about zero writes after five minutes under20words
+ok 7 - trailers count only own jobs and remind about zero writes after five minutes under20words
+  ---
+  duration_ms: 4.319991
+  type: 'test'
+  ...
+# Subtest: read-only and empty sessions close silently without model work or content writes
+ok 8 - read-only and empty sessions close silently without model work or content writes
+  ---
+  duration_ms: 3.574385
+  type: 'test'
+  ...
+# Subtest: missing AI provider honestly leaves a writing session pending without fabricating a snapshot
+ok 9 - missing AI provider honestly leaves a writing session pending without fabricating a snapshot
+  ---
+  duration_ms: 3.134692
+  type: 'test'
+  ...
+# Subtest: idle sweeper and explicit rollup save attributed auto snapshots without pruning existing data
+ok 10 - idle sweeper and explicit rollup save attributed auto snapshots without pruning existing data
+  ---
+  duration_ms: 20.19271
+  type: 'test'
+  ...
+# Subtest: purge during in-flight summarization cannot recreate memory or sessions
+ok 11 - purge during in-flight summarization cannot recreate memory or sessions
+  ---
+  duration_ms: 4.877025
+  type: 'test'
+  ...
+# Subtest: a resumed conversation invalidates an in-flight quiet rollup and stays open
+ok 12 - a resumed conversation invalidates an in-flight quiet rollup and stays open
+  ---
+  duration_ms: 7.494547
+  type: 'test'
+  ...
+# Subtest: operator dry-run CLI prints a scoped seeded pack within budget without surfacing results
+ok 13 - operator dry-run CLI prints a scoped seeded pack within budget without surfacing results
+  ---
+  duration_ms: 123.626452
+  type: 'test'
+  ...
+# Subtest: dashboard sessions retain browser-session authorization and stop summarizing after signout
+ok 14 - dashboard sessions retain browser-session authorization and stop summarizing after signout
+  ---
+  duration_ms: 8.587154
+  type: 'test'
+  ...
+# Subtest: revoked grants and read-only contexts cannot create delayed snapshots
+ok 15 - revoked grants and read-only contexts cannot create delayed snapshots
+  ---
+  duration_ms: 4.001034
+  type: 'test'
+  ...
+# Subtest: automatic snapshot creation never prunes the existing snapshot collection
+ok 16 - automatic snapshot creation never prunes the existing snapshot collection
+  ---
+  duration_ms: 12.565405
+  type: 'test'
+  ...
+# Subtest: context includes only this assistant session writes, and tracking writes invalidate cached packs
+ok 17 - context includes only this assistant session writes, and tracking writes invalidate cached packs
+  ---
+  duration_ms: 7.365786
+  type: 'test'
+  ...
+# Subtest: a fully included completed-job handoff acknowledges delivery even when its detailed result is over budget
+ok 18 - a fully included completed-job handoff acknowledges delivery even when its detailed result is over budget
+  ---
+  duration_ms: 3.25648
+  type: 'test'
+  ...
+# Subtest: think uses scoped longitudinal context, writes a requested fact, records usage and final answer
+ok 19 - think uses scoped longitudinal context, writes a requested fact, records usage and final answer
+  ---
+  duration_ms: 44.698782
+  type: 'test'
+  ...
+# Subtest: do acknowledges quickly, persists completion note/handoff, exposes only own jobs
+ok 20 - do acknowledges quickly, persists completion note/handoff, exposes only own jobs
+  ---
+  duration_ms: 16.65782
+  type: 'test'
+  ...
+# Subtest: quick timeout returns partial speech and queues persistent continuation
+ok 21 - quick timeout returns partial speech and queues persistent continuation
+  ---
+  duration_ms: 8014.958807
+  type: 'test'
+  ...
+# Subtest: tiny remaining daily budget refuses think and do without calling provider
+ok 22 - tiny remaining daily budget refuses think and do without calling provider
+  ---
+  duration_ms: 6.590073
+  type: 'test'
+  ...
+# Subtest: read-only and mismatched brain contexts cannot reason or queue work
+ok 23 - read-only and mismatched brain contexts cannot reason or queue work
+  ---
+  duration_ms: 1.417435
+  type: 'test'
+  ...
+# Subtest: interrupted job is marked failed, never left running
+ok 24 - interrupted job is marked failed, never left running
+  ---
+  duration_ms: 3.840363
+  type: 'test'
+  ...
+# Subtest: purge while model is running cancels late memory and job-result writes
+ok 25 - purge while model is running cancels late memory and job-result writes
+  ---
+  duration_ms: 13.919922
+  type: 'test'
+  ...
+# Subtest: background context and budget refusal do not consume waiting results; successful foreground reasoning does
+ok 26 - background context and budget refusal do not consume waiting results; successful foreground reasoning does
+  ---
+  duration_ms: 23.746818
+  type: 'test'
+  ...
+# Subtest: request deadline includes earlier work and stale-epoch continuation cannot recreate a cleared job
+ok 27 - request deadline includes earlier work and stale-epoch continuation cannot recreate a cleared job
+  ---
+  duration_ms: 48.256865
+  type: 'test'
+  ...
+# Subtest: provider SSE parser handles arbitrary CRLF/UTF-8 boundaries, cumulative cached usage and streamed tool JSON
+ok 28 - provider SSE parser handles arbitrary CRLF/UTF-8 boundaries, cumulative cached usage and streamed tool JSON
+  ---
+  duration_ms: 19.208268
+  type: 'test'
+  ...
+# Subtest: aborting a pending provider stream returns partial text and known usage without waiting for a further chunk
+ok 29 - aborting a pending provider stream returns partial text and known usage without waiting for a further chunk
+  ---
+  duration_ms: 5.25917
+  type: 'test'
+  ...
+# Subtest: provider fetch is mocked: API requests never forward credentials in JSON and forbid redirects
+ok 30 - provider fetch is mocked: API requests never forward credentials in JSON and forbid redirects
+  ---
+  duration_ms: 0.945621
+  type: 'test'
+  ...
+# Subtest: global daily budget is atomic across brains and survives user-content purge
+ok 31 - global daily budget is atomic across brains and survives user-content purge
+  ---
+  duration_ms: 17.040998
+  type: 'test'
+  ...
+# Subtest: settlement is idempotent, epoch-safe and charges aggregate cost after purge without restoring personal usage
+ok 32 - settlement is idempotent, epoch-safe and charges aggregate cost after purge without restoring personal usage
+  ---
+  duration_ms: 5.411536
+  type: 'test'
+  ...
+# Subtest: usage days use Los Angeles rather than UTC midnight
+ok 33 - usage days use Los Angeles rather than UTC midnight
+  ---
+  duration_ms: 8.290538
+  type: 'test'
+  ...
+# Subtest: model tools independently enforce scope, tenant, live grant and private-note visibility
+ok 34 - model tools independently enforce scope, tenant, live grant and private-note visibility
+  ---
+  duration_ms: 8.754847
+  type: 'test'
+  ...
+# Subtest: URL fetch blocks private/mixed DNS, pins public address, refuses redirects and caps streamed bodies
+ok 35 - URL fetch blocks private/mixed DNS, pins public address, refuses redirects and caps streamed bodies
+  ---
+  duration_ms: 2.768365
+  type: 'test'
+  ...
+# Subtest: URL absolute deadline rejects slow DNS before making any request
+ok 36 - URL absolute deadline rejects slow DNS before making any request
+  ---
+  duration_ms: 41.06247
+  type: 'test'
+  ...
+# Subtest: artifact writes reject traversal, symlinks, overlong UTF-8 data and enforce quota while allowing replacement
+ok 37 - artifact writes reject traversal, symlinks, overlong UTF-8 data and enforce quota while allowing replacement
+  ---
+  duration_ms: 68.80425
+  type: 'test'
+  ...
+# Subtest: Unix sandbox executes with empty inherited secrets, denies ordinary outside-file/child access, bounds output and serializes jobs
+ok 38 - Unix sandbox executes with empty inherited secrets, denies ordinary outside-file/child access, bounds output and serializes jobs
+  ---
+  duration_ms: 326.209468
+  type: 'test'
+  ...
+1..38
+# tests 38
+# suites 0
+# pass 38
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9572.590451
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

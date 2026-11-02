@@ -1,0 +1,162 @@
+{
+  "target": "isolated candidate; test database only",
+  "fixture_data": true,
+  "production_mutations": 0,
+  "pages": [
+    {
+      "name": "overview-empty-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "overview-empty-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "overview-populated-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "overview-populated-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "overview-small-mobile",
+      "width": 360,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "memory-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "memory-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "memory-detail-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "jobs-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "jobs-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "job-detail-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "insights-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "insights-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "files-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "files-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "usage-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "usage-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "capture-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "think-desktop",
+      "width": 1440,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "new-task-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "settings-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "clear-confirmation-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "overview-final-mobile",
+      "width": 390,
+      "status": "pass",
+      "horizontal_overflow": false
+    }
+  ],
+  "checks": [
+    "desktop/mobile/360px no overflow",
+    "real empty and populated database states",
+    "brain selector navigates",
+    "memory search and detail",
+    "real note/fact capture",
+    "all secondary pages",
+    "reduced motion",
+    "primary text contrast >7",
+    "secondary text contrast >4.5",
+    "no browser exceptions"
+  ],
+  "contrast": {
+    "primary": 18.54170151175914,
+    "secondary": 9.222602929311124
+  },
+  "console_errors": []
+}

@@ -1,0 +1,163 @@
+ Image sesame-brain-sandbox:v2-candidate Building 
+ Image sesame-brain:v2-candidate Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 935B done
+#1 DONE 0.0s
+
+#2 [app internal] load build definition from Dockerfile
+#2 transferring dockerfile: 835B done
+#2 DONE 0.1s
+
+#3 [sandbox internal] load build definition from Dockerfile
+#3 transferring dockerfile: 235B done
+#3 DONE 0.1s
+
+#4 [app internal] load metadata for docker.io/library/node:22-bookworm-slim
+#4 DONE 0.1s
+
+#5 [app internal] load .dockerignore
+#5 transferring context: 136B done
+#5 DONE 0.0s
+
+#6 [app internal] load build context
+#6 DONE 0.0s
+
+#7 [app build 1/9] FROM docker.io/library/node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d
+#7 resolve docker.io/library/node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d
+#7 resolve docker.io/library/node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d 0.1s done
+#7 CACHED
+
+#8 [sandbox internal] load .dockerignore
+#8 transferring context: 2B done
+#8 DONE 0.1s
+
+#6 [app internal] load build context
+#6 transferring context: 575.19kB done
+#6 DONE 0.1s
+
+#9 [sandbox internal] load build context
+#9 transferring context: 3.37kB done
+#9 DONE 0.3s
+
+#10 [app build 2/9] WORKDIR /app
+#10 CACHED
+
+#11 [app build 3/9] COPY package*.json ./
+#11 DONE 0.2s
+
+#12 [sandbox 2/4] WORKDIR /runner
+#12 DONE 0.3s
+
+#13 [sandbox 3/4] COPY --chown=node:node server.mjs ./server.mjs
+#13 DONE 0.3s
+
+#14 [app build 4/9] RUN npm ci
+#14 ...
+
+#15 [sandbox 4/4] RUN mkdir -p /run/brain-sandbox && chown node:node /run/brain-sandbox
+#15 DONE 0.3s
+
+#16 [sandbox] exporting to image
+#16 exporting layers
+#16 exporting layers 0.7s done
+#16 exporting manifest sha256:f649a2890a28ac4fb642d780f1b5183917a6e6dc5370aa27e7c96f2b59baa53e 0.1s done
+#16 exporting config sha256:d160bf9803091ee0a6f6e032c196a422bab054478e72a8046d34857aaea55f75
+#16 exporting config sha256:d160bf9803091ee0a6f6e032c196a422bab054478e72a8046d34857aaea55f75 0.1s done
+#16 exporting attestation manifest sha256:daed7ba6aa01b70e066aab6a687666e7ebe6052ccd95458e63c7af67ff9124e4
+#16 exporting attestation manifest sha256:daed7ba6aa01b70e066aab6a687666e7ebe6052ccd95458e63c7af67ff9124e4 0.1s done
+#16 exporting manifest list sha256:a575cd41543618c1a18d3b07efefe059669076147bd10de3ce7e65885028865f
+#16 exporting manifest list sha256:a575cd41543618c1a18d3b07efefe059669076147bd10de3ce7e65885028865f 0.1s done
+#16 naming to docker.io/library/sesame-brain-sandbox:v2-candidate 0.0s done
+#16 unpacking to docker.io/library/sesame-brain-sandbox:v2-candidate
+#16 ...
+
+#14 [app build 4/9] RUN npm ci
+#14 1.712 
+#14 1.712 added 138 packages, and audited 139 packages in 1s
+#14 1.712 
+#14 1.712 34 packages are looking for funding
+#14 1.712   run `npm fund` for details
+#14 1.713 
+#14 1.713 found 0 vulnerabilities
+#14 1.713 npm notice
+#14 1.713 npm notice New major version of npm available! 10.9.9 -> 12.2.1
+#14 1.713 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+#14 1.713 npm notice To update run: npm install -g npm@12.2.1
+#14 1.713 npm notice
+#14 DONE 1.9s
+
+#17 [app build 5/9] COPY tsconfig.json ./
+#17 DONE 0.4s
+
+#16 [sandbox] exporting to image
+#16 unpacking to docker.io/library/sesame-brain-sandbox:v2-candidate 0.4s done
+#16 DONE 1.6s
+
+#18 [app build 6/9] COPY src ./src
+#18 DONE 0.2s
+
+#19 [sandbox] resolving provenance for metadata file
+#19 DONE 0.0s
+
+#20 [app build 7/9] COPY scripts ./scripts
+#20 DONE 0.3s
+
+#21 [app build 8/9] COPY test ./test
+#21 DONE 0.1s
+
+#22 [app build 9/9] RUN npm run build && npm prune --omit=dev
+#22 0.304 
+#22 0.304 > sesame-brain@1.0.0 build
+#22 0.304 > tsc
+#22 0.304 
+#22 0.854 
+#22 0.854 up to date, audited 117 packages in 350ms
+#22 0.854 
+#22 0.854 34 packages are looking for funding
+#22 0.854   run `npm fund` for details
+#22 0.854 
+#22 0.854 found 0 vulnerabilities
+#22 DONE 1.0s
+
+#23 [app runtime  3/10] COPY --from=build --chown=node:node /app/node_modules ./node_modules
+#23 DONE 0.5s
+
+#24 [app runtime  4/10] COPY --from=build --chown=node:node /app/dist ./dist
+#24 DONE 0.2s
+
+#25 [app runtime  5/10] COPY --chown=node:node package*.json ./
+#25 DONE 0.2s
+
+#26 [app runtime  6/10] COPY --chown=node:node migrations ./migrations
+#26 DONE 0.2s
+
+#27 [app runtime  7/10] COPY --chown=node:node config ./config
+#27 DONE 0.3s
+
+#28 [app runtime  8/10] COPY --chown=node:node src/web ./src/web
+#28 DONE 0.2s
+
+#29 [app runtime  9/10] COPY --chown=node:node docs/schema ./docs/schema
+#29 DONE 0.2s
+
+#30 [app runtime 10/10] RUN mkdir -p /var/lib/brain/workspaces && chown -R node:node /var/lib/brain
+#30 DONE 0.4s
+
+#31 [app] exporting to image
+#31 exporting layers
+#31 exporting layers 1.0s done
+#31 exporting manifest sha256:bfd24322b3dcf1fcea0c3413d4de478a47ae7e19051a3c9e2fa56069c625d919 0.0s done
+#31 exporting config sha256:bece7bbb556efa1940b13f3a34e3c4be8dcc1fa954dc72146141a0348f5de729 0.0s done
+#31 exporting attestation manifest sha256:0d03b7a1765e8fe6d66f97ac99d63cbbcfe3e62368cbf072b1ff771d540c50b2
+#31 exporting attestation manifest sha256:0d03b7a1765e8fe6d66f97ac99d63cbbcfe3e62368cbf072b1ff771d540c50b2 0.1s done
+#31 exporting manifest list sha256:c2704c55f9c8e2ebc33aae7d53179a8513e047b55560ddd8047ace2a0eca57a1 0.0s done
+#31 naming to docker.io/library/sesame-brain:v2-candidate
+#31 naming to docker.io/library/sesame-brain:v2-candidate done
+#31 unpacking to docker.io/library/sesame-brain:v2-candidate
+#31 unpacking to docker.io/library/sesame-brain:v2-candidate 0.6s done
+#31 DONE 1.9s
+
+#32 [app] resolving provenance for metadata file
+#32 DONE 0.0s
+ Image sesame-brain:v2-candidate Built 
+ Image sesame-brain-sandbox:v2-candidate Built 

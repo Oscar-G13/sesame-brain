@@ -1,0 +1,12 @@
+{
+  "image": "sesame-brain-sandbox:v2-candidate",
+  "network": "none",
+  "read_only": true,
+  "cpu": 0.5,
+  "memory_mib": 192,
+  "pids": 32,
+  "calculation": true,
+  "outside_file_denied": true,
+  "child_process_denied": true,
+  "wall_clock_limit": true
+}

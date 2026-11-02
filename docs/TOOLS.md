@@ -1,0 +1,2293 @@
+# Brain MCP tools
+
+This document describes the twenty tools registered by `src/brain/lifecycle.ts`. Description strings and JSON input schemas below were generated from the current registry; output schemas document the current implementation, rather than claiming that an MCP outputSchema is advertised.
+
+Every call uses the bearer token’s user, brain and assistant identity. Supplying IDs belonging to another brain does not grant access. Read tools require `brain:read`; write tools require `brain:write`. Reasoning and jobs also need read access to assemble context. Automatic snapshot/briefing generation requires a current writable connection; read-only requests update session tracking without generating stored memory.
+
+Successful results carry JSON in the first MCP text block and a short human summary in another text block. Every JSON result is an object with `trailer` and, on an eligible session’s first call, optional `briefing`. Array results are wrapped as `{items:[...],trailer,...}`. Errors may instead be MCP error content; missing/invalid credentials and insufficient tool scopes are HTTP401/403 challenges.
+
+JSON Schema cannot express every application check. Assistant labels are lowercase letters, digits and hyphens, at most32 characters; `all` is reserved for note broadcasts. `mark_notes_read` requires a nonempty ID list or `all:true`. Date inputs must be ISO8601 timestamps with offsets. A successful write is attributed to the calling assistant. Snapshots are retained until explicit user deletion or purge; no retention pruning runs.
+
+Output references use the shared schema catalog at the end of this file. It is a documentation URN, not a hosted endpoint. Optional extra record properties may be added without breaking these contracts.
+
+## `whoami`
+
+Scope: `brain:read`.
+
+Exact client-facing description:
+
+> Returns which assistant you are in this shared brain, which other assistants are connected, and how much is waiting for you. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {}
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "brain": {
+          "type": "string"
+        },
+        "connected_agents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agent": {
+                "type": "string"
+              },
+              "last_seen": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "agent",
+              "last_seen"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "unread_notes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending_handoffs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "server_time": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "agent",
+        "brain",
+        "connected_agents",
+        "unread_notes",
+        "pending_handoffs",
+        "server_time"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `inbox`
+
+Scope: `brain:read`.
+
+Exact client-facing description:
+
+> Call this at the start of a conversation. Returns notes and handoffs other assistants left for you. Does not mark anything as read. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "limit": {
+      "default": 20,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "urn:brain:tool-output-types:v2#/$defs/InboxNote"
+              },
+              {
+                "$ref": "urn:brain:tool-output-types:v2#/$defs/InboxHandoff"
+              }
+            ]
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/InboxNote"
+          }
+        },
+        "handoffs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/InboxHandoff"
+          }
+        }
+      },
+      "required": [
+        "items",
+        "notes",
+        "handoffs"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `read_notes`
+
+Scope: `brain:read`.
+
+Exact client-facing description:
+
+> Search the shared notes visible to you: addressed to you, broadcast to all, or written by you. Use from to see what a specific assistant wrote. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "from": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{1,32}$"
+    },
+    "to": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z0-9-]{1,32}$"
+        },
+        {
+          "type": "string",
+          "const": "all"
+        }
+      ]
+    },
+    "unread_only": {
+      "default": false,
+      "type": "boolean"
+    },
+    "since": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    },
+    "tag": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "limit": {
+      "default": 50,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/Note"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `recall`
+
+Scope: `brain:read`.
+
+Exact client-facing description:
+
+> Look up facts any assistant has stored about the user. Use this before asking the user something another assistant may already know. key matches exactly; query searches keywords. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "tag": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "limit": {
+      "default": 20,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/Fact"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `list_snapshots`
+
+Scope: `brain:read`.
+
+Exact client-facing description:
+
+> List memory backups saved by assistants in this brain. Returns metadata only. Use get_snapshot to read a backup. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "agent": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{1,32}$"
+    },
+    "limit": {
+      "default": 20,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/SnapshotBrief"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `get_snapshot`
+
+Scope: `brain:read`.
+
+Exact client-facing description:
+
+> Read the full text of one memory backup in this brain, using its id from list_snapshots. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/Snapshot"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `activity`
+
+Scope: `brain:read`.
+
+Exact client-facing description:
+
+> What has been happening in the shared brain recently, across all assistants. Returns event metadata and actor, not private note contents. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "limit": {
+      "default": 30,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/Activity"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `leave_note`
+
+Scope: `brain:write`.
+
+Exact client-facing description:
+
+> Leave a note for one or more other assistants. They see it the next time they check their inbox. Use all to tell everyone. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "to": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{1,32}$"
+            },
+            {
+              "type": "string",
+              "const": "all"
+            }
+          ]
+        },
+        {
+          "minItems": 1,
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              },
+              {
+                "type": "string",
+                "const": "all"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    },
+    "tags": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    }
+  },
+  "required": [
+    "to",
+    "text"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `mark_notes_read`
+
+Scope: `brain:write`.
+
+Exact client-facing description:
+
+> Mark notes as read after you have handled them. Supply ids from your inbox, or all:true to mark every note addressed to you. Reading is tracked separately for each assistant. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ids": {
+      "minItems": 1,
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      }
+    },
+    "all": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "marked": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "marked"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `handoff`
+
+Scope: `brain:write`.
+
+Exact client-facing description:
+
+> Hand a task to another assistant. Include everything they need: what the user asked, what you found, what is left. They will see it in their inbox. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "to": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{1,32}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "context": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32000
+    },
+    "next_steps": {
+      "type": "string",
+      "maxLength": 32000
+    }
+  },
+  "required": [
+    "to",
+    "title",
+    "context"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `accept_handoff`
+
+Scope: `brain:write`.
+
+Exact client-facing description:
+
+> Call when you start working a handoff that was sent to you. The sender receives an automatic note. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "const": "accepted"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `complete_handoff`
+
+Scope: `brain:write`.
+
+Exact client-facing description:
+
+> Call when a handoff is finished. The summary goes back to whoever sent it. Only the receiving assistant can complete it. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 7000
+    }
+  },
+  "required": [
+    "id",
+    "summary"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "const": "completed"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `remember`
+
+Scope: `brain:write`.
+
+Exact client-facing description:
+
+> Store a fact about the user that every connected assistant should know. Overwrites an existing fact with the same key. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    },
+    "tags": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    }
+  },
+  "required": [
+    "key",
+    "value"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `forget`
+
+Scope: `brain:write`.
+
+Exact client-facing description:
+
+> Remove a shared fact by its exact key from this brain. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "key"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `save_snapshot`
+
+Scope: `brain:write`.
+
+Exact client-facing description:
+
+> Save everything you currently know about the user as a backup the user owns. Write it as plain text or markdown. Snapshots stay until you explicitly clear memory or delete your account. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200000
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "content"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `think`
+
+Scope: `brain:read + brain:write`.
+
+Exact client-facing description:
+
+> Use this for anything that needs reasoning, research, or memory beyond the current call. Pass what the user said. You get back a spoken answer. Say it in your own voice. If job_id is present, tell the user you are working on it and will have more next time. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32000
+    },
+    "depth": {
+      "default": "quick",
+      "type": "string",
+      "enum": [
+        "quick",
+        "deep"
+      ]
+    },
+    "spoken": {
+      "default": true,
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "text"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "answer": {
+          "type": "string"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "answer",
+        "job_id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+A deadline can return a partial spoken answer and a continuation job_id. With no provider, answer explains that reasoning is not configured; with no daily budget, it says the brain is resting. These cases never invent an answer.
+
+## `do`
+
+Scope: `brain:read + brain:write`.
+
+Exact client-facing description:
+
+> Use this for anything that will take longer than a few seconds: research, writing, comparing options, building something, checking several sources. The user does not have to stay on the line. Acknowledge, then move on. Results appear next time you connect. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32000
+    },
+    "deliver": {
+      "default": "brain",
+      "type": "string",
+      "enum": [
+        "brain",
+        "brain+email"
+      ]
+    }
+  },
+  "required": [
+    "task"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ack": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "ack"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+job_id is null when a task cannot be queued. The acknowledgement explains missing provider/budget or unavailable email delivery. Work is persisted before acknowledgement; results appear as a shared note and handoff.
+
+## `job_status`
+
+Scope: `brain:read`.
+
+Exact client-facing description:
+
+> Check one background task by job_id and tell the user its status in plain language. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "job_id"
+  ]
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/JobStatus"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `jobs_list`
+
+Scope: `brain:read`.
+
+Exact client-facing description:
+
+> List the latest twenty background tasks and whether results are ready. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {}
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/JobBrief"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+## `end_session`
+
+Scope: `brain:write`.
+
+Exact client-facing description:
+
+> Call this when the user says goodbye or the conversation is clearly ending. Call it before you say your own goodbye. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes are attributed and shared.
+
+Input schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {}
+}
+```
+
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "closed": {
+          "type": "boolean"
+        },
+        "snapshotId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "inProgress": {
+          "type": "boolean"
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "missing": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "closed",
+        "snapshotId",
+        "message"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Fewer than twenty words; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional first-touch spoken briefing, at most150 words."
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}
+```
+
+A disabled or failed model can leave a writing session open with an honest message. A missing/purged session is not recreated. An already closed session returns its existing snapshotId; repeated calls do not create duplicate snapshots.
+
+## Shared output schema catalog
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:brain:tool-output-types:v2",
+  "$defs": {
+    "Note": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "brain_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "from_agent": {
+          "type": "string"
+        },
+        "to_agents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "text": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "read_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "job_result"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "brain_id",
+        "from_agent",
+        "to_agents",
+        "text",
+        "tags",
+        "created_at",
+        "read_by",
+        "kind"
+      ],
+      "additionalProperties": true
+    },
+    "InboxNote": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "brain_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "from_agent": {
+          "type": "string"
+        },
+        "to_agents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "text": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "read_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "const": "note"
+        },
+        "note_kind": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "job_result"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "brain_id",
+        "from_agent",
+        "to_agents",
+        "text",
+        "tags",
+        "created_at",
+        "read_by",
+        "kind",
+        "note_kind"
+      ],
+      "additionalProperties": true
+    },
+    "Handoff": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "brain_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "from_agent": {
+          "type": "string"
+        },
+        "to_agent": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "context": {
+          "type": "string"
+        },
+        "next_steps": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "accepted",
+            "completed"
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "accepted_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "brain_id",
+        "from_agent",
+        "to_agent",
+        "title",
+        "context",
+        "next_steps",
+        "status",
+        "summary",
+        "created_at",
+        "accepted_at",
+        "completed_at"
+      ],
+      "additionalProperties": true
+    },
+    "InboxHandoff": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "brain_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "from_agent": {
+          "type": "string"
+        },
+        "to_agent": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "context": {
+          "type": "string"
+        },
+        "next_steps": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "accepted",
+            "completed"
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "accepted_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "const": "handoff"
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "brain_id",
+        "from_agent",
+        "to_agent",
+        "title",
+        "context",
+        "next_steps",
+        "status",
+        "summary",
+        "created_at",
+        "accepted_at",
+        "completed_at",
+        "kind"
+      ],
+      "additionalProperties": true
+    },
+    "Fact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "brain_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "brain_id",
+        "key",
+        "value",
+        "tags",
+        "updated_by",
+        "updated_at"
+      ],
+      "additionalProperties": true
+    },
+    "SnapshotBrief": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "agent": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "auto",
+            "formulation",
+            "audit",
+            "diff"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "agent",
+        "title",
+        "kind",
+        "created_at",
+        "bytes"
+      ],
+      "additionalProperties": true
+    },
+    "Snapshot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "agent": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "auto",
+            "formulation",
+            "audit",
+            "diff"
+          ]
+        },
+        "content": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "agent",
+        "title",
+        "kind",
+        "content",
+        "created_at"
+      ],
+      "additionalProperties": true
+    },
+    "Activity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "actor_agent": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "ref_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "actor_agent",
+        "kind",
+        "ref_id",
+        "created_at"
+      ],
+      "additionalProperties": true
+    },
+    "JobBrief": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "done",
+            "partial",
+            "failed"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result_note_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "state",
+        "created_at",
+        "started_at",
+        "finished_at",
+        "result_note_id",
+        "result_summary"
+      ],
+      "additionalProperties": true
+    },
+    "JobStatus": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "done",
+            "partial",
+            "failed"
+          ]
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result_note_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "state",
+        "started_at",
+        "finished_at",
+        "result_note_id",
+        "result_summary",
+        "error",
+        "summary"
+      ],
+      "additionalProperties": true
+    }
+  }
+}
+```
