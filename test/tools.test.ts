@@ -159,3 +159,64 @@ test('HTTP transport serves modern SDK and legacy requests with bearer, CORS, 40
   await client.close();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
  }
 });
+
+test('real SDK token A exercises all 15 tools while every B row stays unchanged',async()=>{
+ const a=await fixture(),b=await fixture();const marker='PRIVATE-B-'+randomUUID();
+ const noteB=await executeTool(b.context,'leave_note',{to:'maya',text:marker}) as {id:string};
+ const handoffB=await executeTool(b.context,'handoff',{to:'maya',title:marker,context:marker}) as {id:string};
+ const snapshotB=await executeTool(b.context,'save_snapshot',{content:marker}) as {id:string};
+ await executeTool(b.context,'remember',{key:'same-shared-key',value:marker});
+ const beforeB=await dump(b.context);
+ const app=express();app.use(express.json({limit:'1mb'}));app.use(mcpRouter);
+ const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+ const address=server.address();assert.ok(address&&typeof address!=='string');
+ const client=new Client({name:'Every tool tenant isolation',version:'1.0.0'});
+ const called=new Set<string>();
+ const call=async(name:ToolName,args:Record<string,unknown>={},expectError=false)=>{
+  const result=await client.callTool({name,arguments:{...args,user_id:b.context.user_id,brain_id:b.context.brain_id}});
+  called.add(name);assert.equal(Boolean(result.isError),expectError,name);
+  assert.ok(!JSON.stringify(result).includes(marker),name+' must never return B content');
+  if(expectError)return undefined;
+  const content=result.content;assert.ok(Array.isArray(content));
+  assert.equal(content[0].type,'text');return JSON.parse((content[0] as {type:string;text:string}).text);
+ };
+ try{
+  await client.connect(new StreamableHTTPClientTransport(new URL('http://127.0.0.1:'+address.port+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+a.token}}}));
+  for(const name of ['whoami','inbox','read_notes','recall','list_snapshots','activity'] as const)await call(name);
+  await call('get_snapshot',{id:snapshotB.id},true);
+  assert.deepEqual(await call('mark_notes_read',{ids:[noteB.id]}),{marked:0});
+  await call('accept_handoff',{id:handoffB.id},true);
+  await call('complete_handoff',{id:handoffB.id,summary:'Attempt against foreign id'},true);
+  assert.deepEqual(await call('forget',{key:'same-shared-key'}),{deleted:false});
+  const ownNote=await call('leave_note',{to:['maya','charlie'],text:'A own note'});
+  assert.deepEqual(await call('mark_notes_read',{ids:[ownNote.id,noteB.id]}),{marked:1});
+  const ownHandoff=await call('handoff',{to:'maya',title:'A own task',context:'A own task context'});
+  assert.equal((await call('accept_handoff',{id:ownHandoff.id})).status,'accepted');
+  assert.equal((await call('complete_handoff',{id:ownHandoff.id,summary:'A finished'})).status,'completed');
+  await call('remember',{key:'same-shared-key',value:'A own value'});
+  const ownFacts=await call('recall',{key:'same-shared-key'});assert.equal(ownFacts[0].value,'A own value');
+  assert.deepEqual(await call('forget',{key:'same-shared-key'}),{deleted:true});
+  const ownSnapshot=await call('save_snapshot',{content:'A own memory',title:'A backup'});
+  assert.equal((await call('get_snapshot',{id:ownSnapshot.id})).content,'A own memory');
+  assert.deepEqual([...called].sort(),Object.keys(toolDefinitions).sort(),'all fifteen tools must go through the actual token-authenticated HTTP SDK client');
+  assert.equal(await dump(b.context),beforeB,'no HTTP SDK operation may mutate any B data');
+ }finally{await client.close();await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
+});
+test('HTTP accepts and retrieves the full 200000-character CJK snapshot within a one MiB body limit',async()=>{
+ const a=await fixture();const content='記'.repeat(200000);
+ assert.ok(Buffer.byteLength(JSON.stringify({content}),'utf8')>512*1024,'fixture must exceed former JSON cap');
+ const app=express();app.use(express.json({limit:'1mb'}));app.use(mcpRouter);
+ const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+ const address=server.address();assert.ok(address&&typeof address!=='string');
+ const client=new Client({name:'Unicode size boundary',version:'1.0.0'});
+ try{
+  await client.connect(new StreamableHTTPClientTransport(new URL('http://127.0.0.1:'+address.port+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+a.token}}}));
+  const saved=await client.callTool({name:'save_snapshot',arguments:{content,title:'Maximum CJK snapshot'}});
+  assert.equal(Boolean(saved.isError),false);assert.ok(Array.isArray(saved.content));
+  const id=JSON.parse((saved.content[0] as {type:string;text:string}).text).id;
+  const retrieved=await client.callTool({name:'get_snapshot',arguments:{id}});
+  assert.equal(Boolean(retrieved.isError),false);assert.ok(Array.isArray(retrieved.content));
+  const result=JSON.parse((retrieved.content[0] as {type:string;text:string}).text);
+  assert.equal(result.content.length,200000);assert.equal(result.content,content);
+ }finally{await client.close();await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
+});
