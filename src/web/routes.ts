@@ -89,6 +89,7 @@ webRouter.post('/account/grants/:id/rename', requireUser, csrf, async (req, res)
   if (!validAgent(req.body.agent_label)) return res.status(400).send('Choose a lowercase label with letters, numbers, or hyphens, up to 32 characters. The label all is reserved.');
   if (!/^[0-9a-f-]{36}$/i.test(req.params.id as string)) return res.status(404).send('Connection not found.');
   await transaction(async db => {
+    await db.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [req.user!.id]);
     const grant = await db.query('UPDATE grants SET agent_label=$1 WHERE id=$2 AND user_id=$3 AND revoked_at IS NULL RETURNING id', [req.body.agent_label, req.params.id, req.user!.id]);
     if (grant.rowCount) {
       await db.query('UPDATE auth_codes SET agent_label=$1 WHERE grant_id=$2 AND user_id=$3 AND used_at IS NULL', [req.body.agent_label, req.params.id, req.user!.id]);
@@ -99,6 +100,7 @@ webRouter.post('/account/grants/:id/rename', requireUser, csrf, async (req, res)
 webRouter.post('/account/grants/:id/revoke', requireUser, csrf, async (req, res) => {
   if (!/^[0-9a-f-]{36}$/i.test(req.params.id as string)) return res.status(404).send('Connection not found.');
   await transaction(async db => {
+    await db.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [req.user!.id]);
     await db.query('UPDATE grants SET revoked_at=now() WHERE id=$1 AND user_id=$2', [req.params.id, req.user!.id]);
     await db.query('UPDATE refresh_tokens SET revoked_at=now() WHERE grant_id=$1 AND grant_id IN(SELECT id FROM grants WHERE user_id=$2)', [req.params.id, req.user!.id]);
     await db.query('DELETE FROM access_tokens WHERE grant_id=$1 AND grant_id IN(SELECT id FROM grants WHERE user_id=$2)', [req.params.id, req.user!.id]);
@@ -114,7 +116,9 @@ webRouter.post('/account/password', requireUser, csrf, async (req, res) => {
   if (!await argon2.verify(row.rows[0].password_hash, old)) return page(res.status(400), 'password', 'Change password', { error: 'Current password is incorrect.' });
   const hash = await argon2.hash(req.body.password, { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
   await transaction(async db => {
+    await db.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [req.user!.id]);
     await db.query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, req.user!.id]);
+    await db.query('DELETE FROM auth_codes WHERE user_id=$1 AND used_at IS NULL', [req.user!.id]);
     await db.query('DELETE FROM sessions WHERE user_id=$1', [req.user!.id]);
   });
   await createSession(req, res, req.user!.id);
@@ -122,6 +126,8 @@ webRouter.post('/account/password', requireUser, csrf, async (req, res) => {
 });
 webRouter.post('/account/signout-everywhere', requireUser, csrf, async (req, res) => {
   await transaction(async db => {
+    await db.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [req.user!.id]);
+    await db.query('DELETE FROM auth_codes WHERE user_id=$1 AND used_at IS NULL', [req.user!.id]);
     await db.query('DELETE FROM sessions WHERE user_id=$1', [req.user!.id]);
     await db.query('UPDATE grants SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL', [req.user!.id]);
     await db.query('UPDATE refresh_tokens SET revoked_at=now() WHERE grant_id IN(SELECT id FROM grants WHERE user_id=$1)', [req.user!.id]);
