@@ -143,3 +143,13 @@ test('the forty-receipt cap omits overflow records instead of returning unreceip
  const ids=[packet.project!.id,...['confirmed_constraints','confirmed_decisions','proposed_items','open_questions','unfinished_tasks','review_flags'].flatMap(key=>(packet.project as any)[key].map((row:any)=>row.id)),...packet.facts.map(row=>row.id),...packet.open_work.map(row=>row.id),...packet.waiting_results.map(row=>row.id),...packet.recent_notes.map(row=>row.id),...(packet.previous_session?[packet.previous_session.id,...(packet.previous_session.snapshot_id?[packet.previous_session.snapshot_id]:[])]:[])];
  for(const id of ids)assert.ok(packet.source_refs.some(ref=>ref.id===id),'Returned content needs receipt '+id);
 });
+test('think-only saved conversation resumes within the same open session without claiming a native call boundary',async()=>{
+ const a=await fixture(),first=await touchSession(a);
+ await recordSessionActivity(a,first.session.id,{tool:'think',write:false,summary:'User asked about the coastal route. Answer: The coastal route has the earlier arrival.',sourceAudience:['all']});
+ const same=await touchSession(a);assert.equal(same.firstTouch,false);assert.equal(same.session.id,first.session.id);
+ const packet=await buildContinuity(a,{sessionId:first.session.id});
+ assert.equal(packet.saved_context,true);assert.equal(packet.current_session?.id,first.session.id);assert.equal(packet.previous_session,undefined);
+ assert.equal(packet.current_session?.summary_source,'saved_tool_activity');assert.match(packet.current_session!.summary,/coastal route/);
+ assert.match(packet.briefing,/Recent saved conversation context/);assert.ok(!packet.briefing.includes('previous call'));assert.ok(packet.source_refs.some(ref=>ref.collection==='brain_sessions'&&ref.id===first.session.id));
+ assert.equal(providerCalls,0);
+});

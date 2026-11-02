@@ -7,7 +7,7 @@ export interface ContinuityOptions{sessionId?:string;projectId?:string;query?:st
 export interface ContinuityItem{id:string;title:string;content:string;status:string;confirmation:string;revision:number;needs_review:boolean;pending_change?:unknown;pending_change_withheld?:boolean;}
 export interface ContinuityProject{id:string;title:string;goal:string;version:number;status:string;confirmed_constraints:ContinuityItem[];confirmed_decisions:ContinuityItem[];proposed_items:ContinuityItem[];open_questions:ContinuityItem[];unfinished_tasks:ContinuityItem[];review_flags:ContinuityItem[];}
 export interface ContinuityPacket{
- briefing:string;project?:ContinuityProject;previous_session?:{id:string;last_activity_at:string;snapshot_id?:string;summary:string;summary_source:'auto_snapshot'|'manual_snapshot'|'saved_tool_activity'};
+ briefing:string;project?:ContinuityProject;current_session?:{id:string;last_activity_at:string;summary:string;summary_source:'saved_tool_activity'};previous_session?:{id:string;last_activity_at:string;snapshot_id?:string;summary:string;summary_source:'auto_snapshot'|'manual_snapshot'|'saved_tool_activity'};
  recent_notes:Record<string,unknown>[];saved_snapshot?:{id:string;title:string;kind:string;agent_label:string;created_at:string;content:string};facts:Record<string,unknown>[];open_work:Record<string,unknown>[];waiting_results:Record<string,unknown>[];
  source_refs:SourceRef[];source_audience:string[];saved_context:boolean;bytes:number;truncated:boolean;resume_count?:number;resumed_at?:string;
 }
@@ -140,6 +140,19 @@ export async function buildContinuity(a:AuthContext,options:ContinuityOptions={}
    const value={id:prior.id,last_activity_at:stamp(prior.last_activity_at),...(snapshotId?{snapshot_id:snapshotId}:{}),summary,summary_source};
    include(()=>{packet.previous_session=value;},()=>{delete packet.previous_session;},refs,audience);break;
   }
+  if(current&&suitable(current.to_agents,target,a)&&await sourcesAvailable(db,a,current.source_refs??[])){
+   const events=(await db.query("SELECT metadata FROM activity WHERE user_id=$1 AND brain_id=$2 AND actor_agent=$3 AND metadata->>'session_id'=$4 AND metadata ? 'summary' ORDER BY created_at DESC,id DESC LIMIT 5",[...tenant,a.agent_label,current.id])).rows;
+   const material:string[]=[];let audience=current.to_agents;
+   for(const event of events){
+    const eventAudience=event.metadata.audience??current.to_agents;
+    if(!rowVisible({to_agents:eventAudience},a)||!suitable(eventAudience,target,a)||!await sourcesAvailable(db,a,event.metadata.source_refs??[]))continue;
+    material.push(String(event.metadata.tool??'Saved tool record')+': '+String(event.metadata.summary??''));audience=intersectAudiences(audience,eventAudience);
+   }
+   if(material.length){
+    const value={id:current.id,last_activity_at:stamp(current.last_activity_at),summary:clip(material.join('\n'),1000),summary_source:'saved_tool_activity' as const};
+    include(()=>{packet.current_session=value;},()=>{delete packet.current_session;},[{collection:'brain_sessions',id:current.id}],audience);
+   }
+  }
   const words=(options.query??selected?.goal??'').toLowerCase().match(/[\p{L}\p{N}]{3,40}/gu)?.slice(0,8)??[];
   const fp:unknown[]=[...tenant,words],fv=memoryAccessSql('facts','f',a,fp);
   const facts=(await db.query("SELECT f.id,f.key,f.value,f.confirmation,f.confidence,f.source_type,f.to_agents,f.visibility,f.source_refs FROM facts f WHERE f.user_id=$1 AND f.brain_id=$2 AND "+fv+" ORDER BY (SELECT count(*) FROM unnest($3::text[]) q(word) WHERE strpos(lower(f.key||' '||f.value),q.word)>0) DESC,(f.confirmation='user_confirmed') DESC,f.updated_at DESC LIMIT 8",fp)).rows;
@@ -161,6 +174,7 @@ export async function buildContinuity(a:AuthContext,options:ContinuityOptions={}
   }
   const spoken:string[]=[];
   if(packet.project){spoken.push('Your saved project is '+packet.project.title+'.');if(packet.project.goal)spoken.push('The current goal is '+clip(packet.project.goal,170)+'.');const constraint=packet.project.confirmed_constraints[0],decision=packet.project.confirmed_decisions[0],task=packet.project.unfinished_tasks[0],question=packet.project.open_questions[0];if(constraint)spoken.push('Confirmed constraint: '+clip(constraint.content||constraint.title,120)+'.');else if(packet.project.proposed_items[0]){const proposal=packet.project.proposed_items[0];spoken.push((proposal.confirmation==='disputed'?'Disputed saved item: ':'Previously recorded, not yet confirmed: ')+clip(proposal.content||proposal.title,120)+'.');}if(decision)spoken.push('Confirmed decision: '+clip(decision.content||decision.title,100)+'.');if(task)spoken.push('Next unfinished task: '+clip(task.title,100)+'.');if(question)spoken.push('Open question: '+clip(question.title,100)+'.');if(packet.project.review_flags.length)spoken.push(packet.project.review_flags.length+' saved items need review; proposed corrections are not confirmed.');}
+  else if(packet.current_session)spoken.push('Recent saved conversation context: '+clip(packet.current_session.summary,260));
   else if(packet.previous_session)spoken.push('From your last saved session: '+clip(packet.previous_session.summary,260));
   else if(packet.facts.length)spoken.push('Saved context: '+clip(packet.facts[0].key,80)+' — '+clip(packet.facts[0].value,160)+'.');
   else if(packet.recent_notes.length)spoken.push('A saved note says: '+clip(packet.recent_notes[0].text,240));
