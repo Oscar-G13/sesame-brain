@@ -27,7 +27,7 @@ try {
  await capture('consent','/authorize?'+params);
  assert.equal(await page.locator('input[type="radio"]:checked').count(),0,'Consent must not preselect an identity');
  assert.equal(await page.locator('input[type="radio"]').count(),5);
- await page.getByText('Maya',{exact:true}).click();assert.equal(await page.locator('input[type="radio"]:checked').inputValue(),'maya');
+ await page.getByRole('radio',{name:'Maya',exact:true}).check();assert.equal(await page.locator('input[type="radio"]:checked').inputValue(),'maya');
  console.log('PASS mobile pages, no horizontal overflow, consent identity picker');
 }finally{
  if(created){await page.goto(base+'/account/delete');await page.getByLabel('Type DELETE to confirm').fill('DELETE');await page.getByRole('button',{name:'Delete account and all data',exact:true}).click();await page.waitForURL(base+'/');}
