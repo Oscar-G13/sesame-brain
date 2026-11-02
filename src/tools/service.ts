@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import {MemoryError,memoryAccessSql,writeFactRevision,validateSourceRefs,intersectAudiences,visibilityFor,trackSessionWrite,rowVisible,routedAudience,type MemoryWriteOptions} from '../brain/memory.js';
+import {MemoryError,memoryAccessSql,writeFactRevision,validateSourceRefs,intersectAudiences,visibilityFor,trackSessionWrite,rowVisible,routedAudience,type SourceRef,type MemoryWriteOptions} from '../brain/memory.js';
 import { transaction } from '../db/index.js';
 import { isToolName, toolDefinitions, toolScope, type ToolName } from './definitions.js';
 
@@ -25,8 +25,15 @@ export async function executeTool(a:AuthContext,name:string,input:unknown={},exp
   if(expectedEpoch!==undefined&&Number(brain.rows[0].content_epoch)!==expectedEpoch)throw new ToolError('Brain reset; work stopped.',409);
   if(authorize)await authorize(db);
   const writing=toolScope(name)==='brain:write';
-  const evidence=writing?await validateSourceRefs(db,a,options.provenance?.source_refs??[]):{refs:[],audience:['all']};
-  const scopedOptions:MemoryWriteOptions={...options,sourceAudience:intersectAudiences(options.sourceAudience,a.source_audience,evidence.audience),provenance:{...options.provenance,source_refs:evidence.refs}};
+  const inherited=writing&&options.sessionId?(await db.query('SELECT to_agents,source_refs FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND id=$3 AND agent_label=$4 AND closed_at IS NULL',[a.user_id,a.brain_id,options.sessionId,a.agent_label])).rows[0]:undefined;
+  const explicit=writing?await validateSourceRefs(db,a,options.provenance?.source_refs??[]):{refs:[],audience:['all']};
+  const historical:{refs:SourceRef[];audience:string[]}={refs:[],audience:['all']};
+  for(const source of (inherited?.source_refs??[]).slice(0,40)){
+   try{const known=await validateSourceRefs(db,a,[source]);historical.refs.push(...known.refs);historical.audience=intersectAudiences(historical.audience,known.audience);}
+   catch(error){if(!(error instanceof MemoryError))throw error;} // Deleted or withdrawn receipts are not reused.
+  }
+  const evidence={refs:[...new Map([...explicit.refs,...historical.refs].map(ref=>[ref.collection+':'+ref.id,ref])).values()].slice(0,40),audience:intersectAudiences(explicit.audience,historical.audience)};
+  const scopedOptions:MemoryWriteOptions={...options,sourceAudience:intersectAudiences(options.sourceAudience,a.source_audience,evidence.audience,inherited?.to_agents),provenance:{...options.provenance,source_refs:evidence.refs}};
   const result=await run(db,a,name,input,brain.rows[0].name as string,scopedOptions);
   if(writing)await trackSessionWrite(db,a,options.sessionId,name,typeof (result as {id?:unknown})?.id==='string'?(result as {id:string}).id:null,scopedOptions.sourceAudience??['all'],JSON.stringify(input),evidence.refs);
   return result;

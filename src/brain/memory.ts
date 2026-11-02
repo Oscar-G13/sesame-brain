@@ -6,12 +6,12 @@ export type Audience=string[];
 export type SourceType='legacy'|'assistant_record'|'user_report'|'model_derived'|'user_correction';
 export type Confidence='unknown'|'low'|'moderate'|'high';
 export type Confirmation='unconfirmed'|'user_confirmed'|'disputed';
-export interface SourceRef{collection:'notes'|'facts'|'snapshots'|'handoffs'|'jobs'|'fact_revisions';id:string;}
+export interface SourceRef{collection:'notes'|'facts'|'snapshots'|'handoffs'|'jobs'|'fact_revisions'|'projects'|'project_items'|'project_events';id:string;}
 export interface MemoryWriteOptions{sessionId?:string;sourceAudience?:Audience;provenance?:{source_type?:SourceType;confidence?:Confidence;confirmation?:Confirmation;source_refs?:SourceRef[];reason?:string};}
 type Db=pg.PoolClient;
 export class MemoryError extends Error{constructor(message:string,public readonly status=400){super(message);}}
 const uuid=z.string().uuid();
-const refsSchema=z.array(z.object({collection:z.enum(['notes','facts','snapshots','handoffs','jobs','fact_revisions']),id:uuid})).max(40);
+const refsSchema=z.array(z.object({collection:z.enum(['notes','facts','snapshots','handoffs','jobs','fact_revisions','projects','project_items','project_events']),id:uuid})).max(40);
 export function ownerContext(a:AuthContext):boolean{return Boolean((a.client_id==='dashboard'&&a.browser_session_id)||a.owner_access);}
 export function normalizeAudience(value:Audience|undefined):Audience{
  const list=[...new Set(value??['all'])];if(!list.length||list.length>32||list.some(v=>!/^([a-z0-9-]{1,32}|all)$/.test(v)))throw new MemoryError('Invalid source audience.');
@@ -37,6 +37,13 @@ export async function validateSourceRefs(db:Db,a:AuthContext,input:unknown):Prom
  for(const ref of dedup){
   const row=(await db.query('SELECT * FROM '+ref.collection+' WHERE user_id=$1 AND brain_id=$2 AND id=$3',[a.user_id,a.brain_id,ref.id])).rows[0];
   if(!row)throw new MemoryError('A source reference is not available in this brain.');
+  if(['projects','project_items','project_events'].includes(ref.collection)){
+   const project=ref.collection==='projects'?row:(await db.query('SELECT allowed_agents FROM projects WHERE user_id=$1 AND brain_id=$2 AND id=$3',[a.user_id,a.brain_id,row.project_id])).rows[0];
+   if(!project)throw new MemoryError('A source project is not available in this brain.');
+   const allowed=normalizeAudience(project.allowed_agents);
+   if(!ownerContext(a)&&!allowed.includes('all')&&(a.agent_label==='you'||!allowed.includes(a.agent_label)))throw new MemoryError('A source project is not visible to this assistant.');
+   audience=intersectAudiences(audience,allowed);continue;
+  }
   const column=['notes','handoffs','jobs'].includes(ref.collection)?'source_audience':'to_agents';
   if(!rowVisible(row,a,column))throw new MemoryError('A source reference is not visible to this assistant.');
   let sourceAudience=audienceOf(row,column);
@@ -118,6 +125,7 @@ export function memoryAccessSql(table:string,alias:string,a:AuthContext,params:u
 export function routedAudience(table:string,row:Record<string,any>):Audience{
  const base=audienceOf(row,['notes','handoffs','jobs'].includes(table)?'source_audience':'to_agents');
  if(table==='notes')return intersectAudiences(base,row.to_agents.includes('all')?['all']:[row.from_agent,...row.to_agents]);
+ if(table==='handoffs')return intersectAudiences(base,row.to_agent==='all'||row.job_id||row.job_result_visible?['all']:[row.from_agent,row.to_agent]);
  return base;
 }
 

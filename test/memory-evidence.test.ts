@@ -126,3 +126,36 @@ test('content purge removes evidence history and sessions while preserving accou
  assert.equal((await pool.query('SELECT 1 FROM users WHERE id=$1',[a.user_id])).rowCount,1);assert.equal((await pool.query('SELECT 1 FROM grants WHERE id=$1',[a.grant_id])).rowCount,1);
  const size=(await pool.query('SELECT content_bytes,content_rows FROM brains WHERE id=$1',[a.brain_id])).rows[0];assert.equal(Number(size.content_rows),0);assert.equal(Number(size.content_bytes),0);
 });
+test('project item and event receipts retain the project ACL and deny owner-only OAuth labels',async()=>{
+ const a=await fixture(),web=await owner(a);
+ const project=(await pool.query("INSERT INTO projects(user_id,brain_id,title,goal,created_by,allowed_agents) VALUES($1,$2,'Restricted project','Private goal','maya','{maya,charlie}') RETURNING id",tenant(a))).rows[0].id;
+ const item=(await pool.query("INSERT INTO project_items(project_id,user_id,brain_id,type,title,content,created_by,updated_by) VALUES($1,$2,$3,'decision','Choose train','Take the 8:10 train','maya','maya') RETURNING id",[project,...tenant(a)])).rows[0].id;
+ const event=(await pool.query("INSERT INTO project_events(project_id,user_id,brain_id,version,kind,actor_agent,summary,after) VALUES($1,$2,$3,1,'item_added','maya','Recorded timetable decision',$4) RETURNING id",[project,...tenant(a),{content:'Take the 8:10 train',source_type:'user_statement'}])).rows[0].id;
+ const refs=[{collection:'projects' as const,id:project},{collection:'project_items' as const,id:item},{collection:'project_events' as const,id:event}];
+ const saved=await executeTool(a,'remember',{key:'project-train',value:'Take the 8:10 train.'},undefined,undefined,{provenance:{source_type:'model_derived',source_refs:refs}}) as any;
+ assert.equal(saved.visibility,'restricted');assert.deepEqual(saved.source_refs,refs);assert.deepEqual(saved.audience,['charlie','maya']);
+ await assert.rejects(executeTool({...a,agent_label:'miles'},'remember',{key:'unavailable',value:'No'},undefined,undefined,{provenance:{source_refs:refs}}),/not visible/);
+ await pool.query("UPDATE projects SET allowed_agents='{you}' WHERE id=$1",[project]);
+ await assert.rejects(executeTool({...a,agent_label:'you'},'remember',{key:'owner-spoof',value:'No'},undefined,undefined,{provenance:{source_refs:refs}}),/not visible/);
+ assert.equal((await executeTool(web,'remember',{key:'owner-project',value:'Owner only'},undefined,undefined,{provenance:{source_refs:refs}}) as any).visibility,'owner_only');
+});
+test('private reads taint subsequent plain memory writes without adding read activity or losing receipts',async()=>{
+ const {narrowSessionAudience}=await import('../src/brain/sessions.js');
+ const a=await fixture(),session=await touchSession(a),charlie={...a,agent_label:'charlie'};
+ const note=await executeTool(charlie,'leave_note',{to:'maya',text:'Private route information.'}) as any;
+ const activityBefore=(await pool.query('SELECT count(*) FROM activity WHERE user_id=$1 AND brain_id=$2',tenant(a))).rows[0].count;
+ await narrowSessionAudience(a,session.session.id,['all'],[{collection:'notes',id:note.id}]);
+ assert.equal((await pool.query('SELECT count(*) FROM activity WHERE user_id=$1 AND brain_id=$2',tenant(a))).rows[0].count,activityBefore);
+ const saved=await executeTool(a,'remember',{key:'derived-from-read',value:'Private route information.'},undefined,undefined,{sessionId:session.session.id}) as any;
+ assert.equal(saved.visibility,'restricted');assert.deepEqual(saved.source_refs,[{collection:'notes',id:note.id}]);
+ assert.deepEqual(await executeTool({...a,agent_label:'miles'},'recall',{key:'derived-from-read'}),[]);
+});
+test('model search of direct handoffs narrows later internal memory writes to the actual recipients',async()=>{
+ const {callModelTool}=await import('../src/brain/model-tools.js');
+ const a=await fixture();const handoff=await executeTool({...a,agent_label:'charlie'},'handoff',{to:'maya',title:'Restricted route','context':'Zephyr private handoff detail.'}) as any;
+ const modelContext:{audience?:string[];sourceRefs?:any[]}={audience:['all'],sourceRefs:[]};
+ await callModelTool(a,0,'brain_search',{query:'Zephyr',collection:'handoffs'},new AbortController().signal,modelContext);
+ assert.deepEqual(modelContext.audience,['charlie','maya']);assert.ok(modelContext.sourceRefs!.some(r=>r.id===handoff.id));
+ await callModelTool(a,0,'brain_write_fact',{key:'private-search',value:'Zephyr private handoff detail.'},new AbortController().signal,modelContext);
+ assert.deepEqual(await executeTool({...a,agent_label:'miles'},'recall',{key:'private-search'}),[]);
+});

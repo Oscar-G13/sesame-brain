@@ -91,3 +91,25 @@ test('pending hosted-AI access disables automatic nightly work without claiming 
  let called=false;const result=await runNightlyBrain(a,{},dependencies({generate:async()=>{called=true;throw new Error('Unexpected paid work');}}));assert.equal(result.state,'disabled');assert.equal(called,false);
  assert.equal((await pool.query('SELECT 1 FROM nightly_runs WHERE user_id=$1 AND brain_id=$2',[a.user_id,a.brain_id])).rowCount,0);
 });
+test('nightly includes shared project goals, item evidence and corrections while excluding restricted projects',async()=>{
+ const a=await fixture(),shared='PUBLIC-PROJECT-'+randomUUID(),secret='PRIVATE-PROJECT-'+randomUUID();
+ const publicProject=(await pool.query("INSERT INTO projects(user_id,brain_id,title,goal,created_by) VALUES($1,$2,'Shared plan',$3,'maya') RETURNING id",[a.user_id,a.brain_id,shared])).rows[0].id;
+ const privateProject=(await pool.query("INSERT INTO projects(user_id,brain_id,title,goal,created_by,allowed_agents) VALUES($1,$2,'Private plan',$3,'maya','{maya}') RETURNING id",[a.user_id,a.brain_id,secret])).rows[0].id;
+ const item=(await pool.query("INSERT INTO project_items(project_id,user_id,brain_id,type,title,content,confirmation,source_type,created_by,updated_by) VALUES($1,$2,$3,'decision','Timetable',$4,'confirmed','user_statement','you','you') RETURNING id",[publicProject,a.user_id,a.brain_id,shared+' ITEM'])).rows[0].id;
+ await pool.query("INSERT INTO project_events(project_id,user_id,brain_id,version,kind,actor_agent,summary,after) VALUES($1,$2,$3,1,'item_corrected','you',$4,$5)",[publicProject,a.user_id,a.brain_id,shared+' CORRECTION',{source_type:'user_statement',content:shared}]);
+ await pool.query("INSERT INTO project_items(project_id,user_id,brain_id,type,title,content,created_by,updated_by) VALUES($1,$2,$3,'decision','Private item',$4,'maya','maya')",[privateProject,a.user_id,a.brain_id,secret]);
+ const deps=dependencies(),generate=deps.generate;deps.generate=async(who,request)=>{assert.ok(request.prompt.includes(shared+' ITEM'));assert.ok(request.prompt.includes(shared+' CORRECTION'));assert.ok(!request.prompt.includes(secret));return generate(who,request);};
+ const result=await runNightlyBrain(a,{},deps);assert.equal(result.state,'done');
+ const refs=(await pool.query('SELECT source_refs FROM snapshots WHERE id=$1',[result.snapshot_ids!.formulation])).rows[0].source_refs;
+ assert.ok(refs.some((ref:any)=>ref.collection==='project_items'&&ref.id===item));assert.ok(refs.some((ref:any)=>ref.collection==='projects'&&ref.id===publicProject));
+});
+test('automatic project artifacts alone do not schedule nightly work, but a user-origin project change does',async()=>{
+ const a=await fixture(),now=new Date('2033-01-02T11:00:00Z'),created=new Date(now.getTime()-3600000);
+ const project=(await pool.query("INSERT INTO projects(user_id,brain_id,title,created_by) VALUES($1,$2,'Future project','maya') RETURNING id",[a.user_id,a.brain_id])).rows[0].id;
+ await pool.query("INSERT INTO project_events(project_id,user_id,brain_id,version,kind,actor_agent,summary,after,created_at) VALUES($1,$2,$3,1,'artifact_ready','maya','Automatic completion',$4,$5)",[project,a.user_id,a.brain_id,{source_type:'tool_result'},created]);
+ await pool.query("INSERT INTO activity(user_id,brain_id,actor_agent,kind,ref_id,metadata,created_at) VALUES($1,$2,'maya','project_changed',$3,$4,$5)",[a.user_id,a.brain_id,project,{project_version:1,kind:'artifact_ready'},created]);
+ const deps=dependencies({now:()=>now});assert.deepEqual(await runDueNightlies(deps,now),[]);
+ await pool.query("INSERT INTO project_events(project_id,user_id,brain_id,version,kind,actor_agent,summary,after,created_at) VALUES($1,$2,$3,2,'item_added','maya','Explicit constraint',$4,$5)",[project,a.user_id,a.brain_id,{source_type:'user_statement'},created]);
+ await pool.query("INSERT INTO activity(user_id,brain_id,actor_agent,kind,ref_id,metadata,created_at) VALUES($1,$2,'maya','project_changed',$3,$4,$5)",[a.user_id,a.brain_id,project,{project_version:2,kind:'item_added'},created]);
+ const runs=await runDueNightlies(deps,now);assert.equal(runs.length,1);assert.equal(runs[0].state,'done');
+});

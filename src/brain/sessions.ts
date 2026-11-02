@@ -3,7 +3,7 @@ import type pg from 'pg';
 import {pool,transaction} from '../db/index.js';
 import type {AuthContext} from '../tools/service.js';
 import {trimUtf8} from './context.js';
-import {intersectAudiences,normalizeAudience,visibilityFor,memoryAccessSql,audienceOf,type SourceRef} from './memory.js';
+import {intersectAudiences,normalizeAudience,visibilityFor,memoryAccessSql,audienceOf,validateSourceRefs,type SourceRef} from './memory.js';
 
 export interface BrainSession {
  id:string;user_id:string;brain_id:string;agent_label:string;session_key:string;transport_session_id:string|null;
@@ -194,4 +194,15 @@ export async function sweepSessions(options:SessionOptions={}):Promise<{checked:
   if(result.snapshotId)stats.rolledUp++;if(result.closed)stats.closed++;if(result.disabled)stats.disabled++;
  }
  return stats;
+}
+
+/** Record only the audience and real receipts delivered during a read; this is not a memory write. */
+export async function narrowSessionAudience(a:AuthContext,sessionId:string,audience:string[],sourceRefs:SourceRef[]=[]):Promise<void>{
+ await transaction(async db=>{
+  if(!(await db.query('SELECT id FROM brains WHERE user_id=$1 AND id=$2 FOR UPDATE',[a.user_id,a.brain_id])).rowCount||!await currentGrant(db,a))return;
+  const row=(await db.query('SELECT to_agents,source_refs FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL FOR UPDATE',[a.user_id,a.brain_id,a.agent_label,sessionId])).rows[0];if(!row)return;
+  const evidence=await validateSourceRefs(db,a,sourceRefs.slice(0,40));
+  const refs=[...new Map([...(row.source_refs??[]),...evidence.refs].map((r:SourceRef)=>[r.collection+':'+r.id,r])).values()].slice(-40);
+  await db.query('UPDATE brain_sessions SET to_agents=$5,source_refs=$6 WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4',[a.user_id,a.brain_id,a.agent_label,sessionId,intersectAudiences(row.to_agents,audience,evidence.audience),JSON.stringify(refs)]);
+ });
 }
