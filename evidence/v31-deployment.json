@@ -116,5 +116,17 @@
   "release_ci": {
     "url": "https://github.com/Oscar-G13/sesame-brain/actions/runs/41535476769",
     "conclusion": "success"
+  },
+  "final_operational_audit": {
+    "brain_cron_entries": 2,
+    "active_brain_backup_entries": 0,
+    "active_brain_watchdog_entries": 1,
+    "environment_mode": "0o600",
+    "environment_owner_uid": 1000
+  },
+  "source_ci": {
+    "url": "https://github.com/Oscar-G13/sesame-brain/actions/runs/41536149316",
+    "conclusion": "success",
+    "revision": "313955a690d950f316967491e0d1b27248d0220b"
   }
 }

@@ -28,7 +28,7 @@ async function call(client:Client,name:string,args:Record<string,unknown>={}){co
 async function token(body:Record<string,string>){return json(await fetch(base+'/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams(body),signal:AbortSignal.timeout(15000)}));}
 async function deleteFixture(){const page=await browser.request('/account/delete');if(page.status!==200)return false;return(await browser.form('/account/delete',{_csrf:csrf(await page.text()),confirm:'DELETE'})).status===303;}
 try{
- const health=await json(await fetch(base+'/health',{signal:AbortSignal.timeout(15000)}));assert.equal(health.version,'3.1.0','Deploy continuity release before running public acceptance.');receipt.server_version=health.version;
+ const health=await json(await fetch(base+'/health',{signal:AbortSignal.timeout(15000)}));assert.equal(health.version,process.env.BRAIN_EXPECTED_VERSION??'3.1.1','Deploy the current continuity release before public acceptance.');receipt.server_version=health.version;
  const page=await browser.request('/signup');assert.equal(page.status,200);assert.equal((await browser.form('/signup',{_csrf:csrf(await page.text()),email,password,age_confirm:'yes'})).status,303);created=true;
  const initial=await json(await browser.request('/account/export'));assert.equal(initial.ai_access.state,'pending');userId=initial.account.id;assert.match(userId,/^[0-9a-f-]{36}$/i);const brain=initial.brains[0].id;
  const registered=await json(await fetch(base+'/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({client_name:'Synthetic same-voice continuity acceptance',redirect_uris:[redirect],grant_types:['authorization_code','refresh_token'],response_types:['code'],token_endpoint_auth_method:'none'})}),201);clientId=registered.client_id;
@@ -45,10 +45,18 @@ try{
  const question=await call(a,'project_add_item',{project_id:project.id,expected_version:brief.project.version,type:'question',title:'Welcome tone',content:'Should the welcome be formal or casual?',request_id:randomUUID()});
  const task=await call(a,'project_add_item',{project_id:project.id,expected_version:question.project.version,type:'task',title:'Next step: write the welcome',content:'Continue the welcome draft next call after resolving the tone question.',depends_on:[constraint.id],request_id:randomUUID()});
  const goodbye=await call(a,'end_session');assert.equal(goodbye.closed,true);await a.close();
+ const probe=await connect(issued.access_token),failed=await probe.callTool({name:'job_status',arguments:{job_id:randomUUID()}},{timeout:30000});assert.ok(failed.isError);
+ const probeSession=(await db.query('SELECT id,resume_count FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND closed_at IS NULL ORDER BY started_at DESC LIMIT 1',[userId,brain])).rows[0];assert.equal(Number(probeSession.resume_count),0);
+ const recovered=await call(probe,'resume');assert.equal(recovered.resume_count,1);assert.equal(recovered.project.id,project.id);await call(probe,'end_session');await probe.close();
+ check('failed first tool call records no delivery; successful explicit resume records exactly one');
+ const nightlySummary='The overnight review found one new theme. This is a synthetic saved review, not a confirmed fact.';
+ await db.query("INSERT INTO snapshots(user_id,brain_id,agent_label,title,content,kind,visibility,to_agents,source_refs) VALUES($1,$2,'brain-nightly','Synthetic overnight changes',$3,'diff','restricted',ARRAY['maya'],$4)",[userId,brain,JSON.stringify({schema:'brain_formulation_diff',schema_version:'1.0',generated_at:new Date().toISOString(),spoken_summary:nightlySummary}),JSON.stringify([{collection:'projects',id:project.id}])]);
+
  stage='fresh client without IDs';
  const b=await connect(issued.access_token),first=await call(b,'whoami');assert.ok(first.continuity&&first.briefing);const continuity=first.continuity;assert.equal(continuity.project.id,project.id);assert.equal(continuity.project.version,task.project.version);assert.match(JSON.stringify(continuity.project.confirmed_constraints),/50 words/);assert.match(JSON.stringify(continuity.project.open_questions),/formal or casual/);assert.match(JSON.stringify(continuity.project.unfinished_tasks),/write the welcome/);assert.ok(continuity.previous_session);
  check('same voice and same grant reconnect recover unchanged saved work without a project ID');
- const repeated=await call(b,'resume');assert.equal(repeated.project.id,project.id);assert.ok(repeated.saved_context);check('explicit resume restores saved context within an active session');
+ assert.equal(continuity.nightly_update?.summary,nightlySummary);assert.match(first.briefing,/overnight/i);check('first touch includes the authorized saved overnight diff as a labeled review');
+ const repeated=await call(b,'resume');assert.equal(repeated.project.id,project.id);assert.ok(repeated.saved_context);assert.equal(repeated.nightly_update?.summary,nightlySummary);check('explicit resume restores saved context within an active session');
  stage='latest correction';
  const proposed=await call(b,'project_update_item',{project_id:project.id,expected_version:repeated.project.version,item_id:constraint.id,content:'The welcome must contain at most 30 words.',reason:'Synthetic owner asks for a shorter welcome.',request_id:randomUUID()});
  const review=await browser.request(projectPath);assert.equal(review.status,200);assert.equal((await browser.form('/dashboard/projects/'+project.id+'/items/'+constraint.id+'/review?brain='+brain,{_csrf:csrf(await review.text()),expected_version:String(proposed.project.version),decision:'approve',reason:'Approve the synthetic correction.',request_id:randomUUID()})).status,303);

@@ -3183,6 +3183,37 @@ Explicit end_session closes a valid session even if a summary model is unavailab
         "saved_snapshot": {
           "type": "object",
           "additionalProperties": true
+        },
+        "nightly_update": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "generated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "kind": {
+              "const": "diff"
+            },
+            "summary": {
+              "type": "string",
+              "description": "Saved overnight review summary, at most 100 words; historical derived context, not confirmed facts."
+            }
+          },
+          "required": [
+            "id",
+            "created_at",
+            "kind",
+            "summary"
+          ],
+          "additionalProperties": true
         }
       },
       "required": [
@@ -4010,6 +4041,37 @@ Output schema:
     "saved_snapshot": {
       "type": "object",
       "additionalProperties": true
+    },
+    "nightly_update": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "kind": {
+          "const": "diff"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Saved overnight review summary, at most 100 words; historical derived context, not confirmed facts."
+        }
+      },
+      "required": [
+        "id",
+        "created_at",
+        "kind",
+        "summary"
+      ],
+      "additionalProperties": true
     }
   },
   "required": [
@@ -4036,9 +4098,10 @@ Restores saved state even when nothing changed or a new chat reuses the same tok
 | project | Current id, title, goal, version and status, plus confirmed_constraints, confirmed_decisions, proposed_items, open_questions, unfinished_tasks and review_flags. Item entries include id, title, content, status, confirmation, revision and needs_review; pending corrections may be withheld when their sources are unavailable. |
 | current_session | Available saved tool request/answer material from the existing derived session. Includes id, last_activity_at, summary and summary_source=saved_tool_activity; does not claim a native call boundary. |
 | previous_session | Most recent eligible same-label saved session material: id, last_activity_at, summary, summary_source, and optional snapshot_id. Summary source is auto_snapshot, manual_snapshot or saved_tool_activity. |
+| nightly_update | Latest authorized saved overnight diff: id, created_at, optional generated_at, kind=diff and a summary of at most 100 words. It is labeled as a historical review; current facts and decisions still take precedence. |
 | saved_snapshot | Fallback standalone snapshot with id, title, kind, agent_label, created_at and content. It is not claimed to be the prior native call. |
 | recent_notes / facts / open_work / waiting_results | Visible saved notes and facts, unresolved work, and completed/partial job result material. Waiting jobs are acknowledged only after successful external delivery, not internal context assembly. |
 | source_refs / source_audience | Actual delivered record receipts and their intersected audience. Deleted, restricted or unavailable source chains cannot be recovered through an older summary. |
-| saved_context / resume_count / resumed_at | Whether saved content was returned, and optional persistent retrieval receipt. Empty retrieval does not count; a receipt proves tool delivery, not native Sesame memory or transcript synchronization. |
+| saved_context / resume_count / resumed_at | Whether saved content was returned, and optional persistent retrieval receipt. Empty retrieval and failed tool responses do not count; the receipt is recorded only after successful response assembly. A receipt proves tool delivery, not native Sesame memory or transcript synchronization. |
 
 Current canonical facts, constraints and decisions take precedence over historical summaries. Voice-created project constraints and decisions remain clearly marked proposals until owner confirmation, but are still available to resume. Project selection uses an explicit ID, a visible saved bookmark or the sole unambiguous visible active project. Use projects_list to select another project. No unsaved speech is recoverable.

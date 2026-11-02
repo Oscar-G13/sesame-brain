@@ -208,3 +208,15 @@ test('a fully included completed-job handoff acknowledges delivery even when its
  assert.ok(pack.truncated);assert.ok(pack.includedJobIds.includes(done));
  assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[done])).rows[0].surfaced_to,['maya']);
 });
+
+
+test('context omits excess records rather than silently dropping receipts across priority groups',async()=>{
+ const a=await fixture();const one=await job(a,'First completed task','First saved result'),two=await job(a,'Second completed task','Second saved result');
+ for(let i=0;i<45;i++)await fact(a,'receipt fact '+i,'Visible saved value '+i);
+ const pack=await buildContextPack(a,{tokenBudget:100000});
+ const receipts=new Set(pack.sourceRefs.map(ref=>ref.id));
+ assert.equal(receipts.size,40);assert.equal(pack.truncated,true);
+ assert.ok(pack.includedJobIds.includes(one)&&pack.includedJobIds.includes(two));
+ for(const block of pack.blocks)for(const id of block.sourceIds)assert.ok(receipts.has(id),'Every supplied record must retain its receipt');
+ assert.equal(pack.blocks.filter(block=>block.kind==='fact').length,38,'Two complete urgent results reserve two receipts before facts');
+});

@@ -1,0 +1,15 @@
+{
+  "recorded_at": "2026-11-02T22:26:32.000726+00:00",
+  "source": "User reply to the requested same-voice acceptance test",
+  "application": "Sesame Inc. official iPhone app",
+  "deployed_version_at_report": "3.1.0",
+  "scenario": "Save project budget and next step in one call, then retrieve them in a fresh call/chat using the existing connection and same voice",
+  "expected": {
+    "budget": "$600",
+    "next_step": "choosing where to go"
+  },
+  "user_report": "It recalls $600 and choosing where to go",
+  "passed": true,
+  "direct_device_inspection": false,
+  "transcript_or_native_memory_sync_claimed": false
+}

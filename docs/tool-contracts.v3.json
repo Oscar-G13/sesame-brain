@@ -1,5 +1,5 @@
 {
-  "version": "3.1.0",
+  "version": "3.1.1",
   "tools": {
     "whoami": {
       "description": "Returns which assistant you are in this shared brain, which other assistants are connected, and how much is waiting for you. Call resume at the start of a new call or chat. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",

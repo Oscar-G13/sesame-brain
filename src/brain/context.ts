@@ -12,9 +12,11 @@ export function clearContextCache(scope?:{userId:string;brainId:string}):void{if
 export function contextTokenBudget(value?:number):number{const n=value??Number(process.env.BRAIN_CONTEXT_TOKEN_BUDGET??20000);return Number.isFinite(n)?Math.max(64,Math.min(1_000_000,Math.floor(n))):20000;}
 export function trimUtf8(text:string,maxBytes:number):string{if(maxBytes<=0)return '';const b=Buffer.from(text);return b.length<=maxBytes?text:b.subarray(0,maxBytes).toString('utf8').replace(/\uFFFD+$/u,'');}
 const iso=(value:unknown)=>value instanceof Date?value.toISOString():String(value??'');
-export function boundContext(candidates:Candidate[],budget:number,memoryVersion:string):ContextPack{
+export function boundContext(candidates:Candidate[],budget:number,memoryVersion:string,priorRefs:SourceRef[]=[]):ContextPack{
  const blocks:ContextBlock[]=[],includedJobIds:string[]=[],sourceRefs:SourceRef[]=[];let bytes=0,truncated=false,audience=['all'];
  for(const candidate of candidates){
+  const nextRefs=new Set([...priorRefs,...sourceRefs,...(candidate.refs??[])].map(ref=>ref.collection+':'+ref.id));
+  if(nextRefs.size>40){truncated=true;continue;}
   const separator=blocks.length?2:0,remaining=budget-bytes-separator,full=Buffer.byteLength(candidate.text);
   if(remaining<=0){truncated=true;break;}
   let text=candidate.text,complete=true;
@@ -27,7 +29,7 @@ export function boundContext(candidates:Candidate[],budget:number,memoryVersion:
   }
   if(!complete)break;
  }
- return{blocks,bytes,estimatedTokens:bytes,memoryVersion,truncated,includedJobIds,audience,sourceRefs:[...new Map(sourceRefs.map(r=>[r.collection+':'+r.id,r])).values()].slice(0,40)};
+ return{blocks,bytes,estimatedTokens:bytes,memoryVersion,truncated,includedJobIds,audience,sourceRefs:[...new Map(sourceRefs.map(r=>[r.collection+':'+r.id,r])).values()]};
 }
 const stop=new Set(['what','when','where','which','that','this','with','from','have','does','about','could','would','should','please','tell','know','remember','user','your','their','there','they','them','some','the','and','for','are','was','how','why','you','can','did','has','our']);
 function terms(query:string):string[]{return [...new Set((query.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}_-]{1,63}/gu)??[]).filter(term=>!stop.has(term)))].slice(0,12);}
@@ -100,7 +102,7 @@ async function assemble(db:pg.PoolClient,a:AuthContext,options:ContextOptions,ve
  const selected:Candidate[]=[],jobIds:string[]=[],allRefs:SourceRef[]=[];let used=0,truncated=false,audience=target??['all'];
  const consume=(items:Candidate[],cap:number)=>{
   if(!items.length||cap<=0)return;
-  const pack=boundContext(items,cap,version);truncated ||= pack.truncated;used+=(selected.length&&pack.blocks.length?2:0)+pack.bytes;
+  const pack=boundContext(items,cap,version,allRefs);truncated ||= pack.truncated;used+=(selected.length&&pack.blocks.length?2:0)+pack.bytes;
   selected.push(...pack.blocks.map(block=>({kind:block.kind,text:block.text,sourceIds:block.sourceIds})));
   audience=intersectAudiences(audience,pack.audience);allRefs.push(...pack.sourceRefs);
   for(const id of pack.includedJobIds)if(!jobIds.includes(id))jobIds.push(id);
@@ -109,7 +111,7 @@ async function assemble(db:pg.PoolClient,a:AuthContext,options:ContextOptions,ve
  consume(urgent,Math.min(Math.floor(budget*0.30),Math.max(0,budget-used-2)));
  consume([...relevant,...background],Math.max(0,budget-used-(selected.length?2:0)));
  const text=selected.map(block=>block.text).join('\n\n'),bytes=Buffer.byteLength(text);
- return{blocks:selected.map(({kind,text,sourceIds})=>({kind,text,sourceIds})),bytes,estimatedTokens:bytes,memoryVersion:version,truncated,includedJobIds:jobIds,audience,sourceRefs:[...new Map(allRefs.map(r=>[r.collection+':'+r.id,r])).values()].slice(0,40)};
+ return{blocks:selected.map(({kind,text,sourceIds})=>({kind,text,sourceIds})),bytes,estimatedTokens:bytes,memoryVersion:version,truncated,includedJobIds:jobIds,audience,sourceRefs:[...new Map(allRefs.map(r=>[r.collection+':'+r.id,r])).values()]};
 }
 export async function buildContextPack(a:AuthContext,options:ContextOptions={}):Promise<ContextPack>{
  if(!a.scopes.includes('brain:read'))throw new Error('brain:read is required for context.');

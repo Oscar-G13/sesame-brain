@@ -14,11 +14,11 @@ Production revision b1b0906c488c, version 3.1.0, is live at https://brain.arxsab
 | Deployment | App, PostgreSQL and sandbox are healthy; migrations 0001–0011 applied. Loopback port 3360 remains. Temporary test database removed after checks. Shared Caddy configuration was not changed. |
 | Operations | Provider, sandbox, workers and scheduler ready. Overall /ready remains 503 only because host storage exceeds its warning threshold. No shared-server cleanup was performed. |
 | Backups | Deferred by the owner; no archives, uploads, offsite resources or restore drills. Future recovery remains documented in DEFERRED-BACKUPS.md. |
-| Native Sesame iPhone | Pending the owner's actual same-voice call A → call B result. Protocol and browser checks do not establish native tool selection or use of returned context. |
+| Native Sesame iPhone | Passed by user report on deployed 3.1.0: the same voice in a fresh call recalled the $600 budget and choosing where to go. This is user-reported app acceptance, not direct device inspection or a transcript/native-memory synchronization claim. See evidence/v31-native-sesame.json. |
 
 Evidence: evidence/v31-tests.json, v31-secret-scan.json, v31-public-continuity.json, continuity-public-browser.json, v31-preservation-after-migration.json, v31-preservation.json and v31-deployment.json. Browser evidence is under evidence/continuity-browser/ and evidence/continuity-public-browser/.
 
-Native acceptance uses the existing Brain connection and the same voice. In call A: “Use Brain to save a Weekend Escape project with a $600 budget; our next step is choosing where to go.” End the call, then start a fresh call/chat and ask: “Use Brain to pick up where we left off. What's the budget and next step?” Record the actual result. No second connection is required. If the native chat reuses the derived session, explicit resume must still retrieve unchanged saved context.
+Native acceptance uses the existing Brain connection and the same voice. In call A: “Use Brain to save a Weekend Escape project with a $600 budget; our next step is choosing where to go.” End the call, then start a fresh call/chat and ask: “Use Brain to pick up where we left off. What's the budget and next step?” The owner reported success: “It recalls $600 and choosing where to go.” No second connection is required. If the native chat reuses the derived session, explicit resume must still retrieve unchanged saved context.
 
 The 3.0 and v2 results below are historical; the original cross-voice native suggestion is superseded by this same-connection acceptance.
 

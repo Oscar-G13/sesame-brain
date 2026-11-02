@@ -1,0 +1,20 @@
+{
+  "at": "2026-11-02T22:55:15.993559+00:00",
+  "version": "3.1.1",
+  "host": "hermes",
+  "directory": "/srv/sesame-brain",
+  "typecheck": "passed",
+  "build": "passed",
+  "tests": 183,
+  "passed": 183,
+  "failed": 0,
+  "skipped": 0,
+  "provider_requests": 0,
+  "scope": "isolated development database; injected providers",
+  "tool_documentation": {
+    "tools": 29,
+    "formal_input_and_output_schemas": true,
+    "json_blocks_validated": 59,
+    "shared_references_resolve": true
+  }
+}

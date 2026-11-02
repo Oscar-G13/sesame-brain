@@ -114,7 +114,7 @@ test('generic reasoning in the next same-voice call restores the bookmarked proj
  state=await updateItem(a.owner,{project_id:p.id,item_id:state.items[0].id,expected_version:state.project.version,content:'09:10 departure',reason:'The timetable changed'});
  await approveItem(a.owner,{project_id:p.id,item_id:state.items[0].id,expected_version:state.project.version,decision:'approve'});
  let calls=0;setModelTransportForTests(async request=>{
-  calls++;const sent=JSON.stringify(request.messages);assert.match(sent,/CURRENT LIVING PROJECT/);assert.match(sent,/A repeatable morning/);assert.match(sent,/09:10 departure/);
+  calls++;const sent=JSON.stringify(request.messages);assert.match(sent,/CURRENT OWNER-CONFIRMED CONSTRAINT/);assert.match(sent,/A repeatable morning/);assert.match(sent,/09:10 departure/);
   return response('The train now departs at 09:10. The next step is to choose when to leave home.');
  });
  const resumed=await executeBrainTool(a.maya,'think',{text:'What should we do next?',spoken:true});

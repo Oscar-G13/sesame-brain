@@ -57,7 +57,9 @@ export async function touchSession(a:AuthContext,options:SessionOptions={}):Prom
   return{session:rowSession(inserted.rows[0]),firstTouch:true};
  });
  if(!touch.firstTouch||options.skipContinuity)return touch;
- const continuity=await buildContinuity({...a,expected_content_epoch:Number(touch.session.content_epoch)},{sessionId:touch.session.id,projectId:options.projectId});
+ const continuity=await buildContinuity({...a,expected_content_epoch:Number(touch.session.content_epoch)},{sessionId:touch.session.id,projectId:options.projectId,recordReceipt:false});
+ // Restrict the session before execution without claiming successful context delivery.
+ if(continuity.source_refs.length)await narrowSessionAudience({...a,expected_content_epoch:Number(touch.session.content_epoch)},touch.session.id,continuity.source_audience,continuity.source_refs);
  touch.session.to_agents=intersectAudiences(touch.session.to_agents,continuity.source_audience);
  touch.session.source_refs=[...new Map([...(touch.session.source_refs??[]),...continuity.source_refs].map(ref=>[ref.collection+':'+ref.id,ref])).values()].slice(-40);
  touch.session.last_project_id=continuity.project?.id??touch.session.last_project_id;

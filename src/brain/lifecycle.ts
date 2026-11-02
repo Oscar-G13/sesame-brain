@@ -1,4 +1,4 @@
-import {buildContinuity,bookmarkProject} from './continuity.js';
+import {buildContinuity,bookmarkProject,recordContinuityReceipt,type ContinuityPacket} from './continuity.js';
 import { projectToolDefinitions,projectReadTools,executeProjectTool } from '../projects/tools.js';
 import { getAiAccess } from '../auth/access.js';
 import { listFactHistory,validateSourceRefs,intersectAudiences,type SourceRef } from './memory.js';
@@ -83,7 +83,7 @@ export async function executeBrainTool(a:AuthContext,name:string,input:unknown={
  const touch=await touchSession(a,{projectId:requestedProject,skipContinuity:name==='resume'||name==='project_create'});
  const epoch=Number(touch.session.content_epoch),scoped:AuthContext={...a,expected_content_epoch:epoch,source_audience:intersectAudiences(a.source_audience,touch.session.to_agents)};
  let data:unknown;
- if(name==='resume'){const p=continuityDefinitions.resume.inputSchema.parse(input);data=await buildContinuity(scoped,{sessionId:touch.session.id,projectId:p.project_id,query:p.query});}
+ if(name==='resume'){const p=continuityDefinitions.resume.inputSchema.parse(input);data=await buildContinuity(scoped,{sessionId:touch.session.id,projectId:p.project_id,query:p.query,recordReceipt:false});}
  else if(name==='think')data=await think(scoped,input,touch.session.id,start+(thinkSchema.parse(input).depth==='deep'?aiConfig.deepTimeout:aiConfig.quickTimeout),epoch);
  else if(name==='do')data=await enqueueJob(scoped,input,epoch);
  else if(name==='job_status')data=await jobStatus(a,v2Definitions.job_status.inputSchema.parse(input).job_id);
@@ -113,5 +113,6 @@ export async function executeBrainTool(a:AuthContext,name:string,input:unknown={
  const continuity=name==='resume'?returned:touch.continuity;
  const waitingIds=Array.isArray(continuity?.waiting_results)?continuity.waiting_results.map((row:{id?:string})=>row.id).filter((id:unknown):id is string=>typeof id==='string'&&savedId.test(id)):[];
  if(waitingIds.length)await acknowledgeJobResults(scoped,epoch,waitingIds);
+ if(continuity?.saved_context)await recordContinuityReceipt(scoped,touch.session.id,continuity as ContinuityPacket);
  return {...(Array.isArray(data)?{items:data}:data as Record<string,unknown>),...(name!=='resume'&&touch.continuity?{continuity:touch.continuity}:{}),...(name!=='resume'&&touch.briefing?{briefing:touch.briefing}:{}),trailer};
 }

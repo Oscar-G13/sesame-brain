@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.1.1 — 2026-11-02 — final acceptance fixes
+
+- Restored saved overnight review summaries to first-touch and explicit resume, with provenance checks and historical labels.
+- Record saved-context delivery only after a tool succeeds; failed calls cannot complete onboarding.
+- Preserve item correction/review drafts and focus during live project updates, including stale-version protection and an explicit discard action.
+- Bound the complete reasoning memory, including projects and continuity, under the configured conservative UTF-8 budget.
+- Preserve partial spoken reasoning when the background queue is full, with an honest notice that continuation was not queued.
+- Completed formal input/output documentation for all 29 MCP tools.
+
 ## 3.1.0 — 2026-11-02 — context between conversations
 
 - Centered the home page, guide, dashboard and projects on saving context in one Sesame conversation and resuming it in the next with the same voice and connection. Additional connections are optional.
