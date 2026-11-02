@@ -25,7 +25,7 @@ webRouter.use((req, res, next) => {
   next();
 });
 const page = (res: Response, view: string, title: string, locals: Record<string, unknown> = {}) => res.render(view, { title, ...locals });
-webRouter.get('/', (_req, res) => page(res, 'home', 'A shared brain for your assistants'));
+webRouter.get('/', (_req, res) => page(res, 'home', 'Context for your next Sesame conversation'));
 webRouter.get('/docs', (_req, res) => page(res, 'docs', 'Connect your assistants'));
 webRouter.get('/privacy', (_req, res) => page(res, 'privacy', 'Your data, under your control'));
 webRouter.get('/signup', (req, res) => page(res, 'auth', 'Create your brain', { mode: 'signup', next: safeNext(req.query.next), email: '' }));

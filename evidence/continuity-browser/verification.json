@@ -1,0 +1,56 @@
+{
+  "target": "isolated test database and local container only",
+  "passed": true,
+  "production_mutations": 0,
+  "provider_calls": 0,
+  "connections_required": 1,
+  "native_sesame_verified": false,
+  "checks": [
+    "same-voice home and guide",
+    "one connection only",
+    "empty resume not counted",
+    "real saved fact through browser form",
+    "nonempty resume receipt completes onboarding",
+    "minimum one connection without a second voice",
+    "desktop and mobile without horizontal overflow"
+  ],
+  "captures": [
+    {
+      "name": "home-desktop",
+      "width": 1440
+    },
+    {
+      "name": "home-mobile",
+      "width": 390
+    },
+    {
+      "name": "one-connection-desktop",
+      "width": 1440
+    },
+    {
+      "name": "one-connection-mobile",
+      "width": 390
+    },
+    {
+      "name": "saved-before-retrieval-mobile",
+      "width": 390
+    },
+    {
+      "name": "retrieved-desktop",
+      "width": 1440
+    },
+    {
+      "name": "retrieved-mobile",
+      "width": 390
+    },
+    {
+      "name": "projects-mobile",
+      "width": 390
+    },
+    {
+      "name": "guide-mobile",
+      "width": 390
+    }
+  ],
+  "browser_errors": []
+}

@@ -14,6 +14,8 @@ import {runNightlyBrain,validateFormulation,type NightlyDependencies} from '../s
 import {formulationFixture} from './fixtures/web-formulation.js';
 import {asWebAuth} from '../src/brain/engine.js';
 import {getProject,updateItem} from '../src/projects/service.js';
+import {executeBrainTool} from '../src/brain/lifecycle.js';
+import type {AuthContext} from '../src/tools/service.js';
 let server:Server,base:string;const users:string[]=[],clients:string[]=[];
 class Browser{
  cookies=new Map<string,string>();constructor(token:string){this.cookies.set(config.production?'__Host-brain_session':'brain_session',token);}
@@ -71,4 +73,25 @@ test('project HTTP forms keep provenance, stage assistant corrections, preserve 
  const stale=await f.browser.form('/dashboard/projects/'+id+'/items/'+constraint.id+'?brain='+f.brain,{_csrf:token,expected_version:String(versionBefore),title:'Budget',content:'My unsaved draft',status:'confirmed',reason:'A stale correction',request_id:randomUUID()});assert.equal(stale.status,409);assert.match(await stale.text(),/My unsaved draft/);
  const approved=await f.browser.form('/dashboard/projects/'+id+'/items/'+constraint.id+'/review?brain='+f.brain,{_csrf:token,expected_version:String(board.project.version),decision:'approve',request_id:randomUUID()});assert.equal(approved.status,303);board=await getProject(owner,id);assert.equal(board.items.find(item=>item.id===constraint.id)!.content,'1200');assert.equal(board.items.find(item=>item.id===task.id)!.needs_review,true);
  assert.equal((await f.browser.form('/dashboard/projects/'+id+'/items/'+task.id+'/review?brain='+f.brain,{expected_version:String(board.project.version),decision:'approve'})).status,403);
+});
+
+test('one connection completes context onboarding only after actual saved context is retrieved',async()=>{
+ const f=await fixture(false),client='continuity-web-'+randomUUID(),grant=randomUUID();clients.push(client);
+ await pool.query("INSERT INTO oauth_clients(client_id,kind,metadata) VALUES($1,'dcr','{}')",[client]);
+ await pool.query("INSERT INTO grants(id,user_id,brain_id,agent_label,client_id,scope,resource) VALUES($1,$2,$3,'maya',$4,'brain:read brain:write',$5)",[grant,f.user,f.brain,client,config.resource]);
+ const identity:AuthContext={user_id:f.user,brain_id:f.brain,agent_label:'maya',client_id:client,grant_id:grant,scopes:['brain:read','brain:write'],token_hash:hashToken(randomBytes(32).toString('base64url'))};
+ const emptyHtml=await(await f.browser.get('/dashboard?brain='+f.brain)).text();assert.match(emptyHtml,/data-continuity-state="new"/);assert.match(emptyHtml,/Connect once/);assert.ok(!emptyHtml.includes('Two different voices'));assert.ok(!emptyHtml.includes('Connect a second assistant'));
+ let calls=0;setModelTransportForTests(async()=>{calls++;throw new Error('Continuity must not call a provider');});
+ await executeBrainTool(identity,'resume',{});
+ assert.equal(Number((await pool.query('SELECT coalesce(sum(resume_count),0) AS n FROM brain_sessions WHERE user_id=$1 AND brain_id=$2',[f.user,f.brain])).rows[0].n),0,'An empty retrieval is not completion');
+ const token=csrf(await(await f.browser.get('/dashboard/capture?brain='+f.brain)).text());
+ assert.equal((await f.browser.form('/dashboard/capture?brain='+f.brain,{_csrf:token,type:'fact',key:'Morning train',text:'The train leaves at 7:40.'})).status,303);
+ const savedHtml=await(await f.browser.get('/dashboard?brain='+f.brain)).text();assert.match(savedHtml,/data-continuity-state="saved"/);
+ const resumed=await executeBrainTool(identity,'resume',{});assert.ok(JSON.stringify(resumed).includes('7:40'));assert.equal(calls,0);
+ const row=(await pool.query('SELECT coalesce(sum(resume_count),0) AS n,max(resumed_at) AS at FROM brain_sessions WHERE user_id=$1 AND brain_id=$2',[f.user,f.brain])).rows[0];assert.ok(Number(row.n)>=1);assert.ok(row.at);
+ const html=await(await f.browser.get('/dashboard?brain='+f.brain)).text();assert.match(html,/data-continuity-state="retrieved"/);assert.match(html,/Saved context retrieved/);assert.match(html,/does not verify a native Sesame call/);assert.equal((await pool.query('SELECT count(*)::int AS n FROM grants WHERE user_id=$1',[f.user])).rows[0].n,1);
+ const otherBrain=randomUUID();await pool.query("INSERT INTO brains(id,user_id,name) VALUES($1,$2,'Separate')",[otherBrain,f.user]);await pool.query("INSERT INTO grants(user_id,brain_id,agent_label,client_id,scope) VALUES($1,$2,'maya',$3,'brain:read brain:write')",[f.user,otherBrain,client]);await pool.query("INSERT INTO facts(user_id,brain_id,key,value,updated_by) VALUES($1,$2,'Separate fact','Not yet resumed','maya')",[f.user,otherBrain]);const otherHtml=await(await f.browser.get('/dashboard?brain='+otherBrain)).text();assert.match(otherHtml,/data-continuity-state="saved"/,'Another owned brain with saved records and a connection has no retrieval receipt yet');
+});
+test('public copy centers saved context across same-voice conversations and optional extra connections',async()=>{
+ const f=await fixture(false);for(const [path,phrase] of [['/','Pick up where'],['/docs','same voice and connection are enough'],['/dashboard/projects?brain='+f.brain,'pick up next time']]){const response=await f.browser.get(path);assert.equal(response.status,200);const html=await response.text();assert.ok(html.toLowerCase().includes(phrase.toLowerCase()),path);assert.ok(!html.includes('Two different voices'));assert.ok(!html.includes('Why connect four times?'));assert.ok(!html.includes('Let Charlie take the next step.'));}
 });

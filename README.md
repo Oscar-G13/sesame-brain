@@ -1,6 +1,6 @@
 # Brain
 
-A shared brain for Sesame voice assistants, with living projects, reasoning, background work, and evidence that carries between calls. Connect Maya, Miles, Simone, Charlie, or another OAuth MCP client to the same account, choosing an assistant label for each connection.
+Context for your next Sesame call or chat. Save useful details, decisions, projects and open questions in one conversation, then retrieve them in the next with the same voice and connection. Brain also provides reasoning, background work and reviewable evidence.
 
 **Unofficial, not affiliated with or endorsed by Sesame AI Inc.** Sesame is their mark and is used descriptively. This is vibecoded software: a Claude-drafted specification, Codex implementation, and human-owned production deployment. A completed human review is not claimed by automated verification.
 
@@ -8,27 +8,28 @@ A shared brain for Sesame voice assistants, with living projects, reasoning, bac
 
 ## Connect
 
-In Sesame, open **Agent Hub → Apps**, add an external MCP, and paste **https://brain.arxsable.ai/mcp**. Sign up or sign in, choose the assistant currently connecting, and approve. Repeat for each assistant. You must be 18 or older.
+In Sesame, open **Agent Hub → Apps**, add an external MCP, and paste **https://brain.arxsable.ai/mcp**. Sign up or sign in, label the connection, and approve. One connection is enough to save and resume context across conversations. The label attributes records and controls access; additional connections are optional. You must be 18 or older.
 
-Try “leave Charlie a note that the Portland trip is booked,” “anything in your inbox?” or “remember that I take the 7:40 train.” Brain never reads Sesame's private memory automatically. The assistant must send information through Brain's tools.
+In one conversation, try “save in Brain that I take the 7:40 train.” Before finishing, ask it to save the key decisions and open questions. In your next call or chat with the same voice, ask “resume from Brain — where did we leave off?” Brain only knows information sent through its tools. It does not automatically capture every spoken word or import your existing Sesame history.
 
 Other OAuth MCP clients can connect to the same endpoint. Client ID Metadata Documents, dynamic registration, and configured fixed clients are supported. The Streamable HTTP endpoint supports modern and compatible legacy requests; it does not provide the separate deprecated HTTP+SSE transport.
 
 ## Brain v3: Living Projects
 
-Start a project with Maya, continue with Charlie, and retrieve the same saved goal, constraints, decisions, questions, tasks, milestones and artifacts. The dashboard shows real dependency links and which project version each connection last retrieved. Brain cannot inspect or rewrite Sesame's native memory.
+Start a project in one conversation, then resume it in the next using the same connection. Retrieve the saved goal, constraints, decisions, questions, tasks, milestones and artifacts without explaining them again. The dashboard shows real dependency links and which project version each connection last retrieved. Brain cannot inspect or rewrite Sesame's native memory.
 
 An assistant's change to confirmed information becomes a proposal. Owner approval preserves the old value, records its source and reason, and flags dependent work for review. Expected versions prevent silent overwrites; retry IDs prevent duplicate changes. Project jobs attach sourced artifacts and flag assumptions that changed during work.
 
-Brain exposes 28 tools: the original fifteen memory tools, five reasoning/session tools, seven project tools and `memory_history`. The reasoning tools provide:
+Brain exposes 29 tools: the original fifteen memory tools, six reasoning/session tools, seven project tools and `memory_history`. The reasoning tools provide:
 
+- **`resume`**: deterministically retrieve current saved context, the last project, open work and waiting results. It works on demand even without a long idle gap and requires no paid model call.
 - **`think`**: reason over the current request and this brain's longitudinal context. Quick and deep modes have separate deadlines. A timed-out answer can continue as a background job.
 - **`do`**: queue a longer task and return an acknowledgement immediately. Results become a note and handoff restricted to their source audience. `job_status` and `jobs_list` show progress.
-- **`end_session`**: save a call summary when the conversation ends, when a configured model is available.
+- **`end_session`**: close the Brain check-in when the conversation ends. When authorized AI is available, it can save a summary of recorded activity; otherwise it closes without inventing a summary.
 
-Every successful tool response includes a short `trailer`. A new call can also receive a `briefing` describing changes since that assistant's previous session. The assistant should weave these into conversation and speak answers naturally, without reading JSON aloud. For `think` and `do`, first-touch briefing uses immediate deterministic headlines so a separate briefing model does not delay the answer or acknowledgement.
+Every successful tool response includes a short `trailer`. An initial Brain request can also receive saved continuity context automatically. Ask for `resume` whenever a new call or chat needs its bearings; connection/session heuristics alone cannot identify every native Sesame call boundary. Sesame should use this context naturally rather than reading JSON aloud. Continuity retrieval is deterministic and does not require a paid model call.
 
-This MCP endpoint is stateless, so persisted call sessions derive from the access-token hash and assistant label. Thirty idle minutes start a new session. The sweeper checks every minute; a writing/reasoning session quiet for ten minutes can become an `auto` snapshot. Browser dashboard sessions remain tied to the signed-in browser session. Call summaries recheck grant or browser-session authorization. Account deletion and memory-purge epochs prevent delayed work from recreating removed memory.
+This MCP endpoint is stateless, so Brain check-ins derive from the authenticated connection and session rules. Thirty idle minutes normally start a new check-in; explicit `resume` retrieves current saved context even sooner. These check-ins and retrieval receipts are not proof that a native Sesame call started or ended. The sweeper checks every minute; a writing/reasoning session quiet for ten minutes can become an `auto` snapshot. Browser dashboard sessions remain tied to the signed-in browser session. Call summaries recheck grant or browser-session authorization. Account deletion and memory-purge epochs prevent delayed work from recreating removed memory.
 
 Context retrieval scores saved records against the current question, including relevant older notes. It reserves space for current-session changes and waiting results. A conservative UTF-8 byte budget bounds the pack and labels truncation. Permission checks apply before context assembly, search, summaries and result delivery. Reading restricted material narrows subsequent writes in that Brain session. Fact revisions retain prior values, sources, confidence and confirmation status. AI-written facts remain unconfirmed; edits to owner-confirmed facts become proposals.
 
@@ -48,8 +49,8 @@ Account recovery uses one-time codes generated in Account after checking the cur
 
 ## Screenshots
 
-![Living Projects on mobile](evidence/living-projects-browser/project-dense-mobile.png)
-![Brain outcome dashboard](evidence/living-projects-browser/outcome-home-desktop.png)
+![Saved context retrieved with one connection](evidence/continuity-browser/retrieved-desktop.png)
+![Same-voice context continuity on mobile](evidence/continuity-browser/retrieved-mobile.png)
 
 ## Self host in five commands
 

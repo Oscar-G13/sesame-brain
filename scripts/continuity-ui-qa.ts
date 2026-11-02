@@ -1,0 +1,32 @@
+import {chromium} from 'playwright';
+import {randomBytes,randomUUID} from 'node:crypto';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {once} from 'node:events';
+import assert from 'node:assert/strict';
+import {app} from '../src/app.js';
+import {pool} from '../src/db/index.js';
+import {migrate} from './migrate.js';
+import {executeBrainTool} from '../src/brain/lifecycle.js';
+import {setModelTransportForTests} from '../src/brain/provider.js';
+import type {AuthContext} from '../src/tools/service.js';
+assert.equal(process.env.NODE_ENV,'test');assert.equal(new URL(process.env.DATABASE_URL!).pathname,'/brain_test');assert.equal(process.env.BASE_URL,'http://127.0.0.1:3372');
+await migrate();const dir='evidence/continuity-browser';await mkdir(dir,{recursive:true});let providerCalls=0;setModelTransportForTests(async()=>{providerCalls++;throw new Error('Continuity should not use a provider');});
+const server=app.listen(3372,'127.0.0.1');await once(server,'listening');const base='http://127.0.0.1:3372';
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']}),context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),page=await context.newPage();
+const email='continuity-ui-'+randomBytes(6).toString('hex')+'@example.invalid',password=randomBytes(24).toString('base64url'),client='continuity-ui-'+randomUUID(),errors:string[]=[],captures:{name:string;width:number}[]=[];let user:string|undefined,passed=false;
+page.on('pageerror',error=>errors.push(error.message.replaceAll(password,'[redacted]').replaceAll(email,'[fixture]')));
+async function shot(name:string,width=1440){await page.setViewportSize({width,height:width<600?844:1000});await page.waitForTimeout(120);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),name+' overflow');await page.screenshot({path:dir+'/'+name+'.png',fullPage:true});captures.push({name,width});}
+try{
+ await page.goto(base+'/');assert.ok(await page.getByRole('heading',{name:'Pick up where you left off.'}).isVisible());await shot('home-desktop');await shot('home-mobile',390);
+ await page.goto(base+'/signup');await page.getByLabel('Email address').fill(email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Create account'}).click();await page.waitForURL(base+'/dashboard');user=(await pool.query('SELECT id FROM users WHERE email=$1',[email])).rows[0].id;const brain=(await pool.query('SELECT id FROM brains WHERE user_id=$1',[user])).rows[0].id,grant=randomUUID();
+ assert.equal(await page.locator('.assistant-card').count(),0,'No fabricated four-voice setup checklist');
+ await pool.query("INSERT INTO oauth_clients(client_id,kind,metadata) VALUES($1,'dcr','{}')",[client]);await pool.query("INSERT INTO grants(id,user_id,brain_id,agent_label,client_id,scope) VALUES($1,$2,$3,'maya',$4,'brain:read brain:write')",[grant,user,brain,client]);
+ const auth:AuthContext={user_id:user!,brain_id:brain,agent_label:'maya',client_id:client,grant_id:grant,scopes:['brain:read','brain:write'],token_hash:randomBytes(32).toString('hex')};
+ await page.goto(base+'/dashboard');assert.equal(await page.locator('.assistant-card').count(),1);assert.equal(await page.locator('[data-continuity-state]').getAttribute('data-continuity-state'),'new');assert.ok(!(await page.locator('main').innerText()).includes('second assistant'));await shot('one-connection-desktop');await shot('one-connection-mobile',390);
+ await executeBrainTool(auth,'resume',{});assert.equal(Number((await pool.query('SELECT coalesce(sum(resume_count),0) AS n FROM brain_sessions WHERE user_id=$1',[user])).rows[0].n),0);
+ await page.goto(base+'/dashboard/capture');await page.getByRole('radio',{name:'A shared fact'}).check();await page.getByLabel('Fact name').fill('Morning train');await page.getByLabel('What should your brain remember?').fill('The morning train leaves at 7:40.');await page.getByRole('button',{name:'Save memory'}).click();await page.waitForURL(url=>url.pathname.startsWith('/dashboard/memory/facts/'));await page.goto(base+'/dashboard');assert.equal(await page.locator('[data-continuity-state]').getAttribute('data-continuity-state'),'saved');await shot('saved-before-retrieval-mobile',390);
+ const resumed=await executeBrainTool(auth,'resume',{});assert.ok(JSON.stringify(resumed).includes('7:40'));assert.equal(providerCalls,0);await page.goto(base+'/dashboard');assert.equal(await page.locator('[data-continuity-state]').getAttribute('data-continuity-state'),'retrieved');assert.ok(await page.getByRole('heading',{name:'Saved context retrieved.'}).isVisible());assert.equal(await page.locator('.first-success-steps .complete').count(),3);assert.equal(await page.locator('.assistant-card').count(),1);assert.ok(await page.getByText('A retrieval receipt does not verify a native Sesame call',{exact:false}).isVisible());await shot('retrieved-desktop');await shot('retrieved-mobile',390);
+ await page.goto(base+'/dashboard/projects');assert.ok(await page.getByRole('heading',{name:'A plan you can pick up next time.'}).isVisible());await shot('projects-mobile',390);
+ await page.goto(base+'/docs');assert.ok((await page.locator('main').innerText()).includes('same voice and connection are enough'));assert.ok(!(await page.locator('main').innerText()).includes('Why connect four times?'));await shot('guide-mobile',390);
+ assert.deepEqual(errors,[]);passed=true;console.log('PASS same-voice continuity UI: one connection, real saved-context retrieval receipt, zero paid calls, '+captures.length+' captures');
+}finally{if(user)await pool.query('DELETE FROM users WHERE id=$1',[user]);await pool.query('DELETE FROM oauth_clients WHERE client_id=$1',[client]);await writeFile(dir+'/verification.json',JSON.stringify({target:'isolated test database and local container only',passed,production_mutations:0,provider_calls:providerCalls,connections_required:1,native_sesame_verified:false,checks:['same-voice home and guide','one connection only','empty resume not counted','real saved fact through browser form','nonempty resume receipt completes onboarding','minimum one connection without a second voice','desktop and mobile without horizontal overflow'],captures,browser_errors:errors},null,2)+'\n');await browser.close();await new Promise<void>(resolve=>server.close(()=>resolve()));await pool.end();}
