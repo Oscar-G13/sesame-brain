@@ -1,5 +1,5 @@
 import {Router,type Request,type Response,type NextFunction} from 'express';
-import {pool} from '../db/index.js';
+import {pool,transaction} from '../db/index.js';
 import {config} from '../config.js';
 import {csrf,csrfToken} from '../auth/session.js';
 import {rateLimit} from '../auth/rate-limit.js';
@@ -48,8 +48,12 @@ oauthRouter.post('/authorize',rateLimit('authorize',60,60000),csrf,endpoint(asyn
  if(req.body.decision!=='approve'){consent(res,req,auth,'Choose approve or cancel.');return;}
  const agent=String(req.body.agent_label==='other'?req.body.custom_agent??'':req.body.agent_label??'').trim().toLowerCase();
  if(!agentSlug(agent)){consent(res,req,auth,'Choose an assistant, or enter 1–32 lowercase letters, digits or hyphens. The name all is reserved.');return;}
- const brain=(await pool.query('SELECT id FROM brains WHERE user_id=$1 AND name=$2',[req.user.id,'default'])).rows[0];if(!brain)throw new Error('Missing default brain');
- const code=randomToken();await pool.query("INSERT INTO auth_codes(code_hash,client_id,user_id,brain_id,agent_label,redirect_uri,code_challenge,scope,resource,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now()+interval '10 minutes')",[hashToken(code),auth.params.client_id,req.user.id,brain.id,agent,auth.params.redirect_uri,auth.params.code_challenge,auth.params.scope,auth.params.resource]);
+ const code=randomToken();const created=await transaction(async db=>{
+ const owner=await db.query('SELECT id FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',[req.user!.id]);if(!owner.rowCount||!req.sessionId)return false;
+ const session=await db.query('SELECT id FROM sessions WHERE id=$1 AND user_id=$2 AND expires_at>now()',[req.sessionId,req.user!.id]);if(!session.rowCount)return false;
+ const brain=(await db.query('SELECT id FROM brains WHERE user_id=$1 AND name=$2',[req.user!.id,'default'])).rows[0];if(!brain)throw new Error('Missing default brain');
+ await db.query("INSERT INTO auth_codes(code_hash,client_id,user_id,brain_id,agent_label,redirect_uri,code_challenge,scope,resource,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now()+interval '10 minutes')",[hashToken(code),auth.params.client_id,req.user!.id,brain.id,agent,auth.params.redirect_uri,auth.params.code_challenge,auth.params.scope,auth.params.resource]);return true;
+ });if(!created){res.status(401).send('Sign in again to connect this assistant.');return;}
  authorizationResponse(res,auth.params,{code});
 }));
 async function authenticateClient(req:Request):Promise<ClientRecord>{

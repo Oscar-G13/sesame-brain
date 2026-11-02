@@ -34,13 +34,13 @@ export async function fetchCimd(id:string,deps:{resolve?:typeof lookup;get?:type
  const answers=await (deps.resolve??lookup)(url.hostname,{all:true,verbatim:true});
  if(!answers.length||answers.some(a=>!isPublicAddress(a.address)))throw new OAuthError('invalid_client',400,'Private metadata addresses are blocked');
  if(controller.signal.aborted)throw new OAuthError('invalid_client');const answer=answers[0];
- const request=(deps.get??https.get)(url,{signal:controller.signal,headers:{Accept:'application/json'},lookup:(_host,_options,callback)=>callback(null,answer.address,answer.family),servername:url.hostname},response=>{
+ const request=(deps.get??https.get)(url,{signal:controller.signal,family:answer.family,headers:{Accept:'application/json'},lookup:(_host,options,callback)=>{if(typeof options==='object'&&options.all)(callback as unknown as (error:null,addresses:{address:string;family:number}[])=>void)(null,[answer]);else callback(null,answer.address,answer.family);},servername:url.hostname},response=>{
  if(response.statusCode!==200){response.resume();reject(new OAuthError('invalid_client',400,'Metadata fetch failed'));return;}
  const contentType=String(response.headers['content-type']??'').split(';')[0].trim();
  if(!/^application\/(?:[a-zA-Z0-9!#$&^_.+-]+\+)?json$/.test(contentType)){response.resume();reject(new OAuthError('invalid_client_metadata'));return;}
  if(Number(response.headers['content-length']??0)>65536){response.destroy();reject(new OAuthError('invalid_client_metadata',400,'Metadata exceeds 64 KiB'));return;}
  const chunks:Buffer[]=[];let bytes=0;response.on('data',(chunk:Buffer)=>{bytes+=chunk.length;if(bytes>65536){response.destroy();request.destroy();reject(new OAuthError('invalid_client_metadata',400,'Metadata exceeds 64 KiB'));}else chunks.push(chunk);});
- response.on('error',()=>reject(new OAuthError('invalid_client')));response.on('end',()=>{try{const metadata=parseCimdBody(Buffer.concat(chunks),id);if(cache.size>=1000)cache.delete(cache.keys().next().value!);cache.set(id,{metadata,until:Date.now()+86400000});resolve(metadata);}catch(error){reject(error instanceof OAuthError?error:new OAuthError('invalid_client_metadata'));}});
+ response.on('error',()=>reject(new OAuthError('invalid_client')));response.on('end',()=>{if(controller.signal.aborted){reject(new OAuthError('invalid_client'));return;}try{const metadata=parseCimdBody(Buffer.concat(chunks),id);if(cache.size>=1000)cache.delete(cache.keys().next().value!);cache.set(id,{metadata,until:Date.now()+86400000});resolve(metadata);}catch(error){reject(error instanceof OAuthError?error:new OAuthError('invalid_client_metadata'));}});
  });request.setTimeout(5000,()=>request.destroy(new Error('Timeout')));request.on('error',()=>reject(new OAuthError('invalid_client')));
  }catch(error){reject(error instanceof OAuthError?error:new OAuthError('invalid_client'));}
  }),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new OAuthError('invalid_client',400,'Metadata timeout'));},deps.timeoutMs??5000);})]);

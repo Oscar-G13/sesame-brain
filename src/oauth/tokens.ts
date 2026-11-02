@@ -14,6 +14,8 @@ async function issuePair(db:pg.PoolClient,grant:Grant,familyId=randomUUID()):Pro
 export async function revokeGrant(grantId:string,db:pg.PoolClient|pg.Pool=pool){await db.query('UPDATE grants SET revoked_at=coalesce(revoked_at,now()) WHERE id=$1',[grantId]);await db.query('DELETE FROM access_tokens WHERE grant_id=$1',[grantId]);await db.query('UPDATE refresh_tokens SET revoked_at=coalesce(revoked_at,now()) WHERE grant_id=$1',[grantId]);}
 export async function redeemAuthorizationCode(input:{code:string;clientId:string;redirectUri:string;verifier:string;resource:string}){
  const result=await transaction(async db=>{
+ const owner=(await db.query('SELECT user_id FROM auth_codes WHERE code_hash=$1',[hashToken(input.code)])).rows[0];if(!owner)return null;
+ const user=await db.query('SELECT id FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',[owner.user_id]);if(!user.rowCount)return null;
  const found=await db.query('SELECT * FROM auth_codes WHERE code_hash=$1 FOR UPDATE',[hashToken(input.code)]);const code=found.rows[0];
  if(!code||code.client_id!==input.clientId||code.redirect_uri!==input.redirectUri||code.resource!==input.resource||!verifyPkce(input.verifier,code.code_challenge))return null;
  if(code.used_at){if(code.grant_id)await revokeGrant(code.grant_id,db);return null;}
@@ -24,7 +26,11 @@ export async function redeemAuthorizationCode(input:{code:string;clientId:string
 }
 export async function rotateRefreshToken(input:{token:string;clientId:string;resource:string;scope?:string}){
  const result=await transaction(async db=>{
- const found=await db.query('SELECT rt.*,g.id AS id,g.user_id,g.brain_id,g.agent_label,g.client_id,g.scope,g.resource,g.revoked_at AS grant_revoked_at FROM refresh_tokens rt JOIN grants g ON g.id=rt.grant_id WHERE rt.token_hash=$1 FOR UPDATE OF rt,g',[hashToken(input.token)]);const row=found.rows[0];
+ const owner=(await db.query('SELECT g.id,g.user_id FROM refresh_tokens rt JOIN grants g ON g.id=rt.grant_id WHERE rt.token_hash=$1',[hashToken(input.token)])).rows[0];if(!owner)return null;
+ const user=await db.query('SELECT id FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',[owner.user_id]);if(!user.rowCount)return null;
+ const grant=(await db.query('SELECT * FROM grants WHERE id=$1 FOR UPDATE',[owner.id])).rows[0];if(!grant)return null;
+ const refresh=(await db.query('SELECT * FROM refresh_tokens WHERE token_hash=$1 FOR UPDATE',[hashToken(input.token)])).rows[0];if(!refresh)return null;
+ const row={...refresh,user_id:grant.user_id,brain_id:grant.brain_id,agent_label:grant.agent_label,client_id:grant.client_id,scope:grant.scope,resource:grant.resource,grant_revoked_at:grant.revoked_at};
  if(!row||row.client_id!==input.clientId||row.resource!==input.resource)return null;
  if(row.used_at){await db.query('UPDATE refresh_tokens SET revoked_at=coalesce(revoked_at,now()) WHERE family_id=$1',[row.family_id]);await revokeGrant(row.grant_id,db);return null;}
  if(row.revoked_at||row.grant_revoked_at||new Date(row.expires_at).getTime()<=Date.now()||!validAudience(row.resource))return null;
