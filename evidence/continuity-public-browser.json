@@ -1,0 +1,56 @@
+{
+  "target": "https://brain.arxsable.ai",
+  "version": "3.1.0",
+  "passed": true,
+  "synthetic_data_only": true,
+  "owner_data_accessed": false,
+  "provider_calls": 0,
+  "account_created": true,
+  "account_deleted": true,
+  "native_sesame_verified": false,
+  "checks": [
+    "same-voice home and guide",
+    "versioned assets 3.1.0 loaded",
+    "no mandatory second connection or fabricated voice cards",
+    "saved detail does not count as retrieved context",
+    "native-call boundary stated"
+  ],
+  "captures": [
+    {
+      "name": "home-desktop",
+      "width": 1440
+    },
+    {
+      "name": "home-mobile",
+      "width": 390
+    },
+    {
+      "name": "guide-mobile",
+      "width": 390
+    },
+    {
+      "name": "onboarding-mobile",
+      "width": 390
+    },
+    {
+      "name": "saved-before-retrieval-mobile",
+      "width": 390
+    }
+  ],
+  "assets": [
+    {
+      "path": "/assets/app.js",
+      "version": "3.1.0",
+      "status": 200
+    },
+    {
+      "path": "/assets/style.css",
+      "version": "3.1.0",
+      "status": 200
+    }
+  ],
+  "browser_errors": [],
+  "server_errors": [],
+  "operator_cleanup_verified": true,
+  "tested_revision": "b1b0906c488c"
+}
