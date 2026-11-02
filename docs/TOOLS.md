@@ -2304,6 +2304,920 @@ Explicit end_session closes a valid session even if a summary model is unavailab
         "summary"
       ],
       "additionalProperties": true
+    },
+    "MemorySourceRef": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "enum": [
+            "notes",
+            "facts",
+            "snapshots",
+            "handoffs",
+            "jobs",
+            "fact_revisions",
+            "projects",
+            "project_items",
+            "project_events",
+            "brain_sessions"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "collection",
+        "id"
+      ],
+      "additionalProperties": true
+    },
+    "ProjectSourceRef": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "fact",
+            "note",
+            "snapshot",
+            "handoff",
+            "job",
+            "project_item",
+            "url",
+            "statement"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "label": {
+          "type": "string"
+        },
+        "excerpt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "url"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "url"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "fact",
+                  "note",
+                  "snapshot",
+                  "handoff",
+                  "job",
+                  "project_item"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "id"
+            ]
+          }
+        }
+      ]
+    },
+    "Project": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "brain_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "completed",
+            "archived"
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "allowed_agents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "needs_review_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "item_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "brain_id",
+        "title",
+        "goal",
+        "summary",
+        "status",
+        "version",
+        "allowed_agents",
+        "created_by",
+        "created_at",
+        "updated_at"
+      ],
+      "additionalProperties": true
+    },
+    "ProjectSummary": {
+      "allOf": [
+        {
+          "$ref": "urn:brain:tool-output-types:v2#/$defs/Project"
+        },
+        {
+          "type": "object",
+          "required": [
+            "needs_review_count",
+            "item_counts"
+          ]
+        }
+      ]
+    },
+    "ProjectPendingChange": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "confirmed",
+            "in_progress",
+            "blocked",
+            "done",
+            "superseded"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectSourceRef"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "proposed_by": {
+          "type": "string"
+        },
+        "proposed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "content",
+        "status",
+        "source_refs",
+        "reason",
+        "proposed_by",
+        "proposed_at"
+      ],
+      "additionalProperties": true
+    },
+    "ProjectItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "project_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "brain_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "type": {
+          "enum": [
+            "constraint",
+            "decision",
+            "question",
+            "milestone",
+            "task",
+            "artifact"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "confirmed",
+            "in_progress",
+            "blocked",
+            "done",
+            "superseded"
+          ]
+        },
+        "confirmation": {
+          "enum": [
+            "proposed",
+            "confirmed",
+            "disputed"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "needs_review": {
+          "type": "boolean"
+        },
+        "source_type": {
+          "enum": [
+            "user_statement",
+            "assistant_summary",
+            "inference",
+            "tool_result"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectSourceRef"
+          }
+        },
+        "pending_change": {
+          "anyOf": [
+            {
+              "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectPendingChange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "user_id",
+        "brain_id",
+        "type",
+        "title",
+        "content",
+        "status",
+        "confirmation",
+        "revision",
+        "needs_review",
+        "source_type",
+        "source_refs",
+        "pending_change",
+        "created_by",
+        "updated_by",
+        "created_at",
+        "updated_at"
+      ],
+      "additionalProperties": true
+    },
+    "ProjectBriefItem": {
+      "allOf": [
+        {
+          "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectItem"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "content_truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "content_truncated"
+          ],
+          "additionalProperties": true
+        }
+      ]
+    },
+    "ProjectLink": {
+      "type": "object",
+      "properties": {
+        "from_item_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "to_item_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "const": "depends_on"
+        }
+      },
+      "required": [
+        "from_item_id",
+        "to_item_id",
+        "kind"
+      ],
+      "additionalProperties": true
+    },
+    "ProjectEventHead": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "type": "string"
+        },
+        "actor_agent": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "item_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectSourceRef"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "kind",
+        "actor_agent",
+        "summary",
+        "created_at",
+        "item_id",
+        "source_refs"
+      ],
+      "additionalProperties": true
+    },
+    "ProjectEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectEventHead"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "before": {
+              "description": "Earlier JSON value; shape depends on event kind and may be null."
+            },
+            "after": {
+              "description": "Later JSON value with operation-specific evidence or affected_items; may be null."
+            }
+          },
+          "required": [
+            "before",
+            "after"
+          ],
+          "additionalProperties": true
+        }
+      ]
+    },
+    "ProjectAgentReceipt": {
+      "type": "object",
+      "properties": {
+        "agent_label": {
+          "type": "string"
+        },
+        "last_seen_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last_seen_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "agent_label",
+        "last_seen_version",
+        "last_seen_at"
+      ],
+      "additionalProperties": true
+    },
+    "ProjectRequestReceipt": {
+      "type": "object",
+      "properties": {
+        "last_seen_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "current_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "agent_label": {
+          "type": "string"
+        },
+        "received_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "last_seen_version",
+        "current_version",
+        "agent_label",
+        "received_at"
+      ],
+      "additionalProperties": true
+    },
+    "FactRevision": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "brain_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "fact_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "previous_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actor_agent": {
+          "type": "string"
+        },
+        "source_type": {
+          "enum": [
+            "legacy",
+            "assistant_record",
+            "user_report",
+            "model_derived",
+            "user_correction"
+          ]
+        },
+        "confidence": {
+          "enum": [
+            "unknown",
+            "low",
+            "moderate",
+            "high"
+          ]
+        },
+        "confirmation": {
+          "enum": [
+            "unconfirmed",
+            "user_confirmed",
+            "disputed"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/MemorySourceRef"
+          }
+        },
+        "visibility": {
+          "enum": [
+            "shared",
+            "restricted",
+            "owner_only"
+          ]
+        },
+        "to_agents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "enum": [
+            "current",
+            "superseded",
+            "proposed"
+          ]
+        },
+        "supersedes_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "superseded_by_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "brain_id",
+        "fact_id",
+        "key",
+        "value",
+        "previous_value",
+        "actor_agent",
+        "source_type",
+        "confidence",
+        "confirmation",
+        "source_refs",
+        "visibility",
+        "to_agents",
+        "status",
+        "supersedes_id",
+        "superseded_by_id",
+        "reason",
+        "created_at"
+      ],
+      "additionalProperties": true
+    },
+    "ProjectSnapshot": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectSummary"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectItem"
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectLink"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectEvent"
+          },
+          "maxItems": 200
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectAgentReceipt"
+          }
+        },
+        "receipt": {
+          "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectRequestReceipt"
+        },
+        "changed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "project",
+        "items",
+        "links",
+        "events",
+        "receipts",
+        "receipt",
+        "changed"
+      ],
+      "additionalProperties": true
+    },
+    "ProjectBrief": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectSummary"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectBriefItem"
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectLink"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectEventHead"
+          },
+          "maxItems": 20
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectAgentReceipt"
+          }
+        },
+        "receipt": {
+          "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectRequestReceipt"
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "items_omitted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "project",
+        "items",
+        "links",
+        "events",
+        "receipts",
+        "receipt",
+        "changed",
+        "items_omitted"
+      ],
+      "additionalProperties": true
+    },
+    "ContinuityPacket": {
+      "type": "object",
+      "properties": {
+        "recent_notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "open_work": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "waiting_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "briefing": {
+          "type": "string"
+        },
+        "source_audience": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "saved_context": {
+          "type": "boolean"
+        },
+        "bytes": {
+          "type": "integer"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "resume_count": {
+          "type": "integer"
+        },
+        "resumed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "project": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "current_session": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "previous_session": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "saved_snapshot": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "briefing",
+        "recent_notes",
+        "facts",
+        "open_work",
+        "waiting_results",
+        "source_refs",
+        "source_audience",
+        "saved_context",
+        "bytes",
+        "truncated"
+      ],
+      "additionalProperties": true
+    },
+    "ResultEnvelope": {
+      "type": "object",
+      "properties": {
+        "trailer": {
+          "type": "string",
+          "description": "Short spoken reminder; empty when nothing needs saying."
+        },
+        "briefing": {
+          "type": "string",
+          "description": "Optional deterministic first-touch spoken briefing."
+        },
+        "continuity": {
+          "$ref": "urn:brain:tool-output-types:v2#/$defs/ContinuityPacket"
+        }
+      },
+      "required": [
+        "trailer"
+      ],
+      "additionalProperties": true
     }
   }
 }
@@ -2324,7 +3238,36 @@ Input schema:
 }
 ```
 
-Output: projects: visible project records with version, goal and review counts. All successful results include trailer and may include briefing.
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "projects": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectSummary"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "projects"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ResultEnvelope"
+    }
+  ]
+}
+```
+
+projects: visible project records with version, goal and review counts. All successful results include trailer and may include briefing.
 
 
 ## `project_create`
@@ -2370,7 +3313,25 @@ Input schema:
 }
 ```
 
-Output: A project record with id, version and allowed_agents. All successful results include trailer and may include briefing.
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/Project"
+    },
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ResultEnvelope"
+    }
+  ]
+}
+```
+
+A project record with id, version and allowed_agents. All successful results include trailer and may include briefing.
+
+The initial creation response includes needs_review_count and item_counts; an idempotent replay may return the base project record without those derived counts.
 
 
 ## `project_brief`
@@ -2410,7 +3371,25 @@ Input schema:
 }
 ```
 
-Output: project, items, links, recent event heads, receipts, receipt, changed and items_omitted. Default item content is bounded; request item_ids for full item content. All successful results include trailer and may include briefing.
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectBrief"
+    },
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ResultEnvelope"
+    }
+  ]
+}
+```
+
+project, items, links, recent event heads, receipts, receipt, changed and items_omitted. Default item content is bounded; request item_ids for full item content. All successful results include trailer and may include briefing.
+
+Brief items include content_truncated. Without item_ids, at most 80 nonsuperseded items are selected and each content is shortened to 1,500 JavaScript string code units; explicit item_ids select matching items with full stored content. Event heads omit before and after. items_omitted counts every stored item not selected. The receipt object reports the caller’s preceding receipt and current project version; receipts contains the latest stored receipt for each assistant label after this retrieval.
 
 
 ## `project_add_item`
@@ -2548,7 +3527,25 @@ Input schema:
 }
 ```
 
-Output: Updated project snapshot. New assistant entries are proposals. All successful results include trailer and may include briefing.
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectSnapshot"
+    },
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ResultEnvelope"
+    }
+  ]
+}
+```
+
+Updated project snapshot. New assistant entries are proposals. All successful results include trailer and may include briefing.
+
+The snapshot contains all stored project items (including superseded items), dependency edges, up to 200 full events, and the existing retrieval receipts. Mutations do not acknowledge a project retrieval.
 
 
 ## `project_update_item`
@@ -2671,7 +3668,25 @@ Input schema:
 }
 ```
 
-Output: Updated snapshot; confirmed content stays current until owner approval. All successful results include trailer and may include briefing.
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectSnapshot"
+    },
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ResultEnvelope"
+    }
+  ]
+}
+```
+
+Updated snapshot; confirmed content stays current until owner approval. All successful results include trailer and may include briefing.
+
+The snapshot contains all stored project items (including superseded items), dependency edges, up to 200 full events, and the existing retrieval receipts. Mutations do not acknowledge a project retrieval.
 
 
 ## `project_update`
@@ -2742,7 +3757,25 @@ Input schema:
 }
 ```
 
-Output: Updated project snapshot. All successful results include trailer and may include briefing.
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectSnapshot"
+    },
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ResultEnvelope"
+    }
+  ]
+}
+```
+
+Updated project snapshot. All successful results include trailer and may include briefing.
+
+The snapshot contains all stored project items (including superseded items), dependency edges, up to 200 full events, and the existing retrieval receipts. Mutations do not acknowledge a project retrieval.
 
 
 ## `project_history`
@@ -2773,7 +3806,38 @@ Input schema:
 }
 ```
 
-Output: events: up to100 versioned before/after records; page with before_version. All successful results include trailer and may include briefing.
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/ProjectEvent"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ResultEnvelope"
+    }
+  ]
+}
+```
+
+events: up to100 versioned before/after records; page with before_version. All successful results include trailer and may include briefing.
+
+Events are newest first. before and after are stored JSON values whose fields depend on kind; they may include prior project/item records, pending_change or affected_items. Both keys are returned even when their values are null.
 
 
 ## `memory_history`
@@ -2801,7 +3865,36 @@ Input schema:
 }
 ```
 
-Output: revisions: fact values, previous values, sources, visibility, confirmation, status and supersession IDs. All successful results include trailer and may include briefing.
+Output schema:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "revisions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:brain:tool-output-types:v2#/$defs/FactRevision"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "revisions"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "$ref": "urn:brain:tool-output-types:v2#/$defs/ResultEnvelope"
+    }
+  ]
+}
+```
+
+revisions: fact values, previous values, sources, visibility, confirmation, status and supersession IDs. All successful results include trailer and may include briefing.
 
 
 ## `resume`
