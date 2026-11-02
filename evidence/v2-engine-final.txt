@@ -1,0 +1,80 @@
+ Container sesame-brain-testdb-1 Running 
+ Container sesame-brain-testdb-1 Waiting 
+ Container sesame-brain-testdb-1 Healthy 
+ Container sesame-brain-dev-run-b24ecc9ae9cf Creating 
+ Container sesame-brain-dev-run-b24ecc9ae9cf Created 
+TAP version 13
+# Subtest: think uses scoped longitudinal context, writes a requested fact, records usage and final answer
+ok 1 - think uses scoped longitudinal context, writes a requested fact, records usage and final answer
+  ---
+  duration_ms: 44.968544
+  type: 'test'
+  ...
+# Subtest: do acknowledges quickly, persists completion note/handoff, exposes only own jobs
+ok 2 - do acknowledges quickly, persists completion note/handoff, exposes only own jobs
+  ---
+  duration_ms: 19.102848
+  type: 'test'
+  ...
+# Subtest: quick timeout returns partial speech and queues persistent continuation
+ok 3 - quick timeout returns partial speech and queues persistent continuation
+  ---
+  duration_ms: 8014.504693
+  type: 'test'
+  ...
+# Subtest: tiny remaining daily budget refuses think and do without calling provider
+ok 4 - tiny remaining daily budget refuses think and do without calling provider
+  ---
+  duration_ms: 6.49243
+  type: 'test'
+  ...
+# Subtest: read-only and mismatched brain contexts cannot reason or queue work
+ok 5 - read-only and mismatched brain contexts cannot reason or queue work
+  ---
+  duration_ms: 1.494038
+  type: 'test'
+  ...
+# Subtest: interrupted job is marked failed, never left running
+ok 6 - interrupted job is marked failed, never left running
+  ---
+  duration_ms: 4.226195
+  type: 'test'
+  ...
+# Subtest: purge while model is running cancels late memory and job-result writes
+ok 7 - purge while model is running cancels late memory and job-result writes
+  ---
+  duration_ms: 11.004761
+  type: 'test'
+  ...
+# Subtest: background context and budget refusal do not consume waiting results; successful foreground reasoning does
+ok 8 - background context and budget refusal do not consume waiting results; successful foreground reasoning does
+  ---
+  duration_ms: 24.568445
+  type: 'test'
+  ...
+# Subtest: request deadline includes earlier work and stale-epoch continuation cannot recreate a cleared job
+ok 9 - request deadline includes earlier work and stale-epoch continuation cannot recreate a cleared job
+  ---
+  duration_ms: 48.349916
+  type: 'test'
+  ...
+# Subtest: a running job that reaches a token limit persists a partial result
+ok 10 - a running job that reaches a token limit persists a partial result
+  ---
+  duration_ms: 9.30621
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8438.333716
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

@@ -35,7 +35,7 @@ export async function runAgent(a:AuthContext,task:string,options:{model:string;e
   let result;
   try{
    result=await generateBudgeted({...a,content_epoch:options.epoch},{model:options.model,system,messages,tools:[...(options.job?jobModelTools:memoryModelTools),...webSearchTool(options.model)],maxOutputTokens:options.job?4096:1024,signal:options.signal,tokenBudget:options.tokenBudget-inputTokens-outputTokens,onText:chunk=>{text+=chunk;}});
-  }catch(error){if(error instanceof BudgetError&&inputTokens===0&&outputTokens===0)throw error;if(options.signal.aborted||error instanceof BudgetError){partial=true;break;}throw error;}
+  }catch(error){if(error instanceof BudgetError&&!options.job&&inputTokens===0&&outputTokens===0)throw error;if(options.signal.aborted||error instanceof BudgetError){partial=true;break;}throw error;}
   await assertEpoch(a,options.epoch);
   inputTokens+=result.inputTokens;outputTokens+=result.outputTokens;
   // A complete final response replaces prior tool-planning prose. Partial streamed output is retained on timeout.

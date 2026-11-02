@@ -8,7 +8,7 @@ import { think,enqueueJob,runNextJob,recoverInterruptedJobs,jobStatus,listJobs,r
 import { setModelTransportForTests,type ModelResult } from '../src/brain/provider.js';
 import { purgeBrainContent } from '../src/brain/purge.js';
 import { aiConfig,RESTING } from '../src/brain/config.js';
-import { localDay } from '../src/brain/usage.js';
+import { localDay,BudgetError } from '../src/brain/usage.js';
 const users:string[]=[],client='engine-'+randomUUID();
 before(async()=>{await migrate();await pool.query("INSERT INTO oauth_clients(client_id,kind,metadata) VALUES($1,'dcr','{}')",[client]);});
 afterEach(()=>setModelTransportForTests(undefined));
@@ -80,4 +80,10 @@ test('request deadline includes earlier work and stale-epoch continuation cannot
  const start=Date.now(),result=await think(a,{text:'Slow work'},undefined,start+40);assert.ok(Date.now()-start<500);assert.ok(result.job_id);
  await purgeBrainContent(a.user_id,a.brain_id);await assert.rejects(enqueueJob(a,{task:'Old continuation'},0),/reset/);
  assert.equal((await pool.query('SELECT id FROM jobs WHERE user_id=$1',[a.user_id])).rowCount,0);
+});
+
+test('a running job that reaches a token limit persists a partial result',async()=>{
+ const a=await fixture();setModelTransportForTests(async()=>{throw new BudgetError();});
+ const queued=await enqueueJob(a,{task:'Bounded work'});await runNextJob(a);
+ const status=await jobStatus(a,queued.job_id!) as {state:string;result_note_id:string};assert.equal(status.state,'partial');assert.ok(status.result_note_id);
 });
