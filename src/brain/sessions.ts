@@ -38,24 +38,25 @@ async function currentGrant(db:pg.PoolClient,a:AuthContext,write=false):Promise<
 }
 function summaryText(result:SummaryResult):string{return typeof result==='string'?result:result.text;}
 function spokenWords(text:string,max=150):string{return text.trim().split(/\s+/u).slice(0,max).join(' ');}
-type Delta={text:string;includedJobIds:string[]};
+type Delta={text:string;includedJobIds:string[];audience:string[];sourceRefs:SourceRef[]};
 async function briefingDelta(a:AuthContext,session:BrainSession):Promise<Delta>{
- const tenant=[a.user_id,a.brain_id],parts:string[]=[],jobsIncluded:string[]=[];
+ const tenant=[a.user_id,a.brain_id],parts:string[]=[],jobsIncluded:string[]=[],sourceRefs:SourceRef[]=[];
  const previous=await pool.query('SELECT last_activity_at FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id<>$4 ORDER BY last_activity_at DESC LIMIT 1',[...tenant,a.agent_label,session.id]);
  const since=previous.rows[0]?.last_activity_at??new Date(0);
  const jp:unknown[]=[...tenant,a.agent_label],jv=memoryAccessSql('jobs','j',a,jp);
  const jobs=await pool.query("SELECT j.id,j.title,j.result_summary,left(j.result_text,2000) AS excerpt FROM jobs j WHERE user_id=$1 AND brain_id=$2 AND state IN ('done','partial') AND NOT $3=ANY(surfaced_to) AND "+jv+' ORDER BY finished_at DESC NULLS LAST LIMIT 20',jp);
- for(const row of jobs.rows){const line='Completed job '+row.id+' ('+row.title+'): '+(row.result_summary??row.excerpt??'The result is ready.');if(Buffer.byteLength([...parts,line].join('\n\n'))<=12000){parts.push(line);jobsIncluded.push(row.id);}}
+ for(const row of jobs.rows){const line='Completed job '+row.id+' ('+row.title+'): '+(row.result_summary??row.excerpt??'The result is ready.');if(Buffer.byteLength([...parts,line].join('\n\n'))<=12000){parts.push(line);jobsIncluded.push(row.id);sourceRefs.push({collection:'jobs',id:row.id});}}
  const hp:unknown[]=[...tenant],hv=memoryAccessSql('handoffs','h',a,hp);
- const handoffs=await pool.query("SELECT title,from_agent,left(context,1000) AS excerpt FROM handoffs h WHERE user_id=$1 AND brain_id=$2 AND status IN ('pending','accepted') AND "+hv+' ORDER BY created_at DESC LIMIT 20',hp);
- for(const row of handoffs.rows)parts.push('Open handoff from '+row.from_agent+': '+row.title+'\n'+row.excerpt);
+ const handoffs=await pool.query("SELECT id,title,from_agent,left(context,1000) AS excerpt FROM handoffs h WHERE user_id=$1 AND brain_id=$2 AND status IN ('pending','accepted') AND "+hv+' ORDER BY created_at DESC LIMIT 20',hp);
+ for(const row of handoffs.rows){parts.push('Open handoff from '+row.from_agent+': '+row.title+'\n'+row.excerpt);sourceRefs.push({collection:'handoffs',id:row.id});}
  const sp:unknown[]=[...tenant,a.agent_label,since],sv=memoryAccessSql('snapshots','s',a,sp);
- const snapshots=await pool.query('SELECT title,kind,agent_label,created_at,left(content,1000) AS excerpt FROM snapshots s WHERE user_id=$1 AND brain_id=$2 AND agent_label<>$3 AND created_at>$4 AND '+sv+' ORDER BY created_at DESC LIMIT 10',sp);
- for(const row of snapshots.rows)parts.push('Snapshot from '+row.agent_label+' ('+row.kind+'): '+(row.title??'Untitled')+'\n'+row.excerpt);
+ const snapshots=await pool.query('SELECT id,title,kind,agent_label,created_at,left(content,1000) AS excerpt FROM snapshots s WHERE user_id=$1 AND brain_id=$2 AND agent_label<>$3 AND created_at>$4 AND '+sv+' ORDER BY created_at DESC LIMIT 10',sp);
+ for(const row of snapshots.rows){parts.push('Snapshot from '+row.agent_label+' ('+row.kind+'): '+(row.title??'Untitled')+'\n'+row.excerpt);sourceRefs.push({collection:'snapshots',id:row.id});}
  const fp:unknown[]=[...tenant,since],fv=memoryAccessSql('facts','f',a,fp);
- const facts=await pool.query('SELECT key,value,confirmation FROM facts f WHERE user_id=$1 AND brain_id=$2 AND updated_at>$3 AND '+fv+' ORDER BY updated_at DESC LIMIT 100',fp);
- for(const row of facts.rows)parts.push('Updated memory ['+row.confirmation+'] '+row.key+': '+row.value);
- return{text:trimUtf8(parts.join('\n\n'),20000),includedJobIds:jobsIncluded};
+ const facts=await pool.query('SELECT id,key,value,confirmation FROM facts f WHERE user_id=$1 AND brain_id=$2 AND updated_at>$3 AND '+fv+' ORDER BY updated_at DESC LIMIT 100',fp);
+ for(const row of facts.rows){parts.push('Updated memory ['+row.confirmation+'] '+row.key+': '+row.value);sourceRefs.push({collection:'facts',id:row.id});}
+ const audience=await transaction(async db=>{let audience=['all'];for(let at=0;at<sourceRefs.length;at+=40)audience=intersectAudiences(audience,(await validateSourceRefs(db,a,sourceRefs.slice(at,at+40))).audience);return audience;});
+ return{text:trimUtf8(parts.join('\n\n'),20000),includedJobIds:jobsIncluded,audience,sourceRefs:sourceRefs.slice(0,40)};
 }
 export async function touchSession(a:AuthContext,options:SessionOptions={}):Promise<SessionTouch>{
  const now=options.now??new Date(),key=sessionKey(a,options.transportSessionId);
@@ -83,8 +84,11 @@ export async function touchSession(a:AuthContext,options:SessionOptions={}):Prom
   const saved=await transaction(async db=>{
    const brain=await db.query('SELECT content_epoch FROM brains WHERE user_id=$1 AND id=$2 FOR UPDATE',[a.user_id,a.brain_id]);
    if(!brain.rowCount||String(brain.rows[0].content_epoch)!==touch.session.content_epoch||!await currentGrant(db,a))return false;
-   const updated=await db.query('UPDATE brain_sessions SET briefing=$5,briefing_at=$6 WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL RETURNING id',[a.user_id,a.brain_id,a.agent_label,touch.session.id,briefing,now]);
+   const current=(await db.query('SELECT to_agents,source_refs FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL FOR UPDATE',[a.user_id,a.brain_id,a.agent_label,touch.session.id])).rows[0];if(!current)return false;
+   const audience=intersectAudiences(current.to_agents,delta.audience),refs=[...new Map([...(current.source_refs??[]),...delta.sourceRefs].map((ref:SourceRef)=>[ref.collection+':'+ref.id,ref])).values()].slice(-40);
+   const updated=await db.query('UPDATE brain_sessions SET briefing=$5,briefing_at=$6,to_agents=$7,source_refs=$8 WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL RETURNING id',[a.user_id,a.brain_id,a.agent_label,touch.session.id,briefing,now,audience,JSON.stringify(refs)]);
    if(!updated.rowCount)return false;
+   touch.session.to_agents=audience;touch.session.source_refs=refs;
    if(delivered.length)await db.query('UPDATE jobs SET surfaced_to=array_append(surfaced_to,$3) WHERE user_id=$1 AND brain_id=$2 AND id=ANY($4::uuid[]) AND NOT $3=ANY(surfaced_to)',[a.user_id,a.brain_id,a.agent_label,delivered]);
    return true;
   });

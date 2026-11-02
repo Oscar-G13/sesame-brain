@@ -26,11 +26,11 @@ export function visibilityFor(audience:Audience):'shared'|'restricted'|'owner_on
 export function audienceOf(row:Record<string,any>,column='to_agents'):Audience{return row.visibility==='owner_only'?['you']:normalizeAudience(row[column]??['all']);}
 export function rowVisible(row:Record<string,any>,a:AuthContext,column='to_agents'):boolean{
  if(ownerContext(a))return true;if(row.visibility==='owner_only')return false;
- const audience=normalizeAudience(row[column]??['all']);return audience.includes('all')||audience.includes(a.agent_label);
+ const audience=normalizeAudience(row[column]??['all']);return audience.includes('all')||(a.agent_label!=='you'&&audience.includes(a.agent_label));
 }
 export function visibilitySql(alias:string,column:string,a:AuthContext,params:unknown[]):string{
  const index=params.push(ownerContext(a)),agent=params.push(a.agent_label);
- return '($'+index+'::boolean OR ('+alias+".visibility<>'owner_only' AND ('all'=ANY("+alias+'.'+column+') OR $'+agent+'=ANY('+alias+'.'+column+'))))';
+ return '($'+index+'::boolean OR ('+alias+".visibility<>'owner_only' AND ('all'=ANY("+alias+'.'+column+') OR ($'+agent+"<>'you' AND $"+agent+'=ANY('+alias+'.'+column+')))))';
 }
 export async function validateSourceRefs(db:Db,a:AuthContext,input:unknown):Promise<{refs:SourceRef[];audience:Audience}>{
  const refs=refsSchema.parse(input??[]),dedup=[...new Map(refs.map(ref=>[ref.collection+':'+ref.id,ref])).values()];let audience:Audience=['all'];

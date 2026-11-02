@@ -3,7 +3,7 @@ import {MemoryError,memoryAccessSql,writeFactRevision,validateSourceRefs,interse
 import { transaction } from '../db/index.js';
 import { isToolName, toolDefinitions, toolScope, type ToolName } from './definitions.js';
 
-export interface AuthContext { user_id:string;brain_id:string;agent_label:string;client_id:string;scopes:string[];grant_id:string;token_hash:string;browser_session_id?:string;owner_access?:boolean;source_audience?:string[]; }
+export interface AuthContext { user_id:string;brain_id:string;agent_label:string;client_id:string;scopes:string[];grant_id:string;token_hash:string;browser_session_id?:string;owner_access?:boolean;source_audience?:string[];expected_content_epoch?:number; }
 export class ToolError extends Error { constructor(message:string,public readonly status=400){super(message);} }
 type Db=pg.PoolClient;
 async function event(db:Db,a:AuthContext,kind:string,ref:string|null):Promise<void>{

@@ -159,3 +159,11 @@ test('model search of direct handoffs narrows later internal memory writes to th
  await callModelTool(a,0,'brain_write_fact',{key:'private-search',value:'Zephyr private handoff detail.'},new AbortController().signal,modelContext);
  assert.deepEqual(await executeTool({...a,agent_label:'miles'},'recall',{key:'private-search'}),[]);
 });
+test('mixed owner and assistant audiences never grant owner access to an OAuth assistant named you',async()=>{
+ const a=await fixture(),web=await owner(a);
+ const snapshot=await executeTool(web,'save_snapshot',{content:'Mixed owner and Maya private source.'},undefined,undefined,{sourceAudience:['you','maya']}) as any;
+ assert.equal((await executeTool(a,'get_snapshot',{id:snapshot.id}) as any).content,'Mixed owner and Maya private source.');
+ await assert.rejects(executeTool({...a,agent_label:'you'},'get_snapshot',{id:snapshot.id}),/not found/);
+ assert.deepEqual(await executeTool({...a,agent_label:'you'},'list_snapshots',{}),[]);
+ await assert.rejects(executeTool({...a,agent_label:'you'},'remember',{key:'mixed-spoof',value:'No'},undefined,undefined,{provenance:{source_refs:[{collection:'snapshots',id:snapshot.id}]}}),/not visible/);
+});
