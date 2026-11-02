@@ -1,0 +1,47 @@
+{
+  "at": "2026-11-02T21:26:03.057Z",
+  "database": "isolated testdb/brain_test",
+  "synthetic_only": true,
+  "native_iphone_test": "pending",
+  "backups": "deferred by owner; no backup performed",
+  "checks": [
+    {
+      "check": "public MCP discovery",
+      "tools": 28
+    },
+    {
+      "check": "confirmed constraint, proposed correction, owner approval and dependent review",
+      "cross_assistant": true
+    },
+    {
+      "check": "real provider project artifact and Maya/Charlie retrieval receipts",
+      "draft_words": 23,
+      "artifact_proposed": true,
+      "audience_restricted": true
+    }
+  ],
+  "models": {
+    "configured": true,
+    "models": [
+      {
+        "id": "claude-sonnet-5-5",
+        "available": true,
+        "webSearch": true
+      },
+      {
+        "id": "claude-opus-5-5",
+        "available": true,
+        "webSearch": true
+      }
+    ]
+  },
+  "usage": [
+    {
+      "model": "claude-opus-5-5",
+      "input_tokens": "4452",
+      "output_tokens": "54"
+    }
+  ],
+  "passed": true,
+  "disposable_account_deleted": true
+}

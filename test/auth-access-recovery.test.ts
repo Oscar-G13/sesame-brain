@@ -7,6 +7,7 @@ import {migrate} from '../scripts/migrate.js';
 import {generateRecoveryCodes,recoveryCodeCount,resetWithRecoveryCode} from '../src/auth/recovery.js';
 import {getAiAccess,requireSponsoredAi,setAiAccess,AiAccessError,ensureSignupCapacity,RegistrationPausedError} from '../src/auth/access.js';
 import {reserveUsage} from '../src/brain/usage.js';
+import {aiConfig} from '../src/brain/config.js';
 import {reportSubsystem,getReadiness} from '../src/ops/readiness.js';
 const users:string[]=[],clientId='auth-access-'+randomUUID(),password='A private fixture passphrase '+randomUUID();
 before(async()=>{await migrate();await pool.query("INSERT INTO oauth_clients(client_id,kind,metadata) VALUES($1,'dcr',$2)",[clientId,{client_name:'Fixture',redirect_uris:['https://fixture.example/callback']}]);});
@@ -22,4 +23,11 @@ test('concurrent signup admission cannot exceed the configured account cap',asyn
  const schema='admission_'+randomUUID().replaceAll('-','');await pool.query('CREATE SCHEMA '+schema);await pool.query('CREATE TABLE '+schema+'.users(id UUID PRIMARY KEY,deleted_at TIMESTAMPTZ)');
  const attempt=async()=>{const db=await pool.connect();try{await db.query('BEGIN');await db.query('SET LOCAL search_path TO '+schema);await ensureSignupCapacity(db,1);await db.query('INSERT INTO users(id) VALUES($1)',[randomUUID()]);await db.query('COMMIT');return true;}catch(error){await db.query('ROLLBACK');if(error instanceof RegistrationPausedError)return false;throw error;}finally{db.release();}};
  try{const results=await Promise.all([attempt(),attempt()]);assert.equal(results.filter(Boolean).length,1);assert.equal((await pool.query('SELECT count(*)::int AS n FROM '+schema+'.users')).rows[0].n,1);}finally{await pool.query('DROP SCHEMA '+schema+' CASCADE');}
+});
+
+test('configured overnight readiness fails immediately when the scheduler reports failure',async()=>{
+ await reportSubsystem('scheduler',false,'scheduler_error');
+ const failed=await getReadiness();assert.equal(failed.nightly.ok,!aiConfig.ready);
+ if(aiConfig.ready)assert.ok(failed.issues.some(issue=>issue.includes('overnight')));
+ await reportSubsystem('scheduler',true,'ready');
 });

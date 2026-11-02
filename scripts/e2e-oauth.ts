@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import pg from 'pg';
 
@@ -8,7 +8,7 @@ const resource = base+'/mcp';
 const redirectUri = process.env.E2E_REDIRECT_URI ?? base+'/e2e/callback';
 const registrationMethod=process.env.E2E_REGISTRATION_METHOD??'both';
 assert.ok(['both','dcr','cimd'].includes(registrationMethod),'Choose E2E_REGISTRATION_METHOD=both,dcr,or cimd');
-const expectedTools = ['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','leave_note','mark_notes_read','handoff','accept_handoff','complete_handoff','remember','forget','save_snapshot','think','do','job_status','jobs_list','end_session'];
+const expectedTools = ['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','leave_note','mark_notes_read','handoff','accept_handoff','complete_handoff','remember','forget','save_snapshot','think','do','job_status','jobs_list','end_session','memory_history','projects_list','project_create','project_brief','project_add_item','project_update_item','project_update','project_history'];
 type Tokens = {access_token:string;refresh_token:string;token_type:string;expires_in:number;scope:string};
 class Browser {
  cookies = new Map<string,string>();
@@ -63,7 +63,7 @@ async function verifyDeleted(userId:string,brainIds:string[],grantIds:string[]) 
  if(!process.env.DATABASE_URL) { console.log('INFO Database cascade verification skipped: DATABASE_URL unavailable; HTTP deletion verified.');return; }
  const db=new pg.Pool({connectionString:process.env.DATABASE_URL,max:1});
  try {
-  for(const table of ['users','brains','sessions','auth_codes','grants','notes','handoffs','facts','snapshots','activity','brain_sessions','jobs','usage','usage_reservations','nightly_runs']) {
+  for(const table of ['users','brains','sessions','auth_codes','grants','notes','handoffs','facts','snapshots','activity','brain_sessions','jobs','usage','usage_reservations','nightly_runs','fact_revisions','account_recovery_codes','ai_access_audit','projects','project_items','project_links','project_events','project_receipts']) {
    const column=table==='users'?'id':'user_id';
    const rows=await db.query(`SELECT count(*)::int AS n FROM ${table} WHERE ${column}=$1`,[userId]);
    assert.equal(rows.rows[0].n,0,`Deleted account left rows in ${table}`);
@@ -72,7 +72,7 @@ async function verifyDeleted(userId:string,brainIds:string[],grantIds:string[]) 
    const rows=await db.query(`SELECT count(*)::int AS n FROM ${table} WHERE grant_id=ANY($1::uuid[])`,[grantIds]);
    assert.equal(rows.rows[0].n,0,`Deleted account left rows in ${table}`);
   }
-  assert.ok(brainIds.length);console.log('PASS account deletion cascades across all 17 user-owned tables');
+  assert.ok(brainIds.length);console.log('PASS account deletion cascades across all 25 account and grant-owned tables');
  } finally {await db.end();}
 }
 async function scenario(kind:'DCR'|'CIMD') {
@@ -93,7 +93,7 @@ async function scenario(kind:'DCR'|'CIMD') {
   } else {assert.equal((await fetch(clientId)).status,200,'Enable E2E_ENABLED for test metadata');}
   const mayaTokens=await authorize(browser,clientId,'maya'),charlieTokens=await authorize(browser,clientId,'charlie');
   const maya=await connect(mayaTokens),charlie=await connect(charlieTokens);clients.push(maya,charlie);
-  const listing=await maya.listTools();assert.deepEqual(listing.tools.map(t=>t.name).sort(),expectedTools.sort());console.log(`PASS ${kind} OAuth discovery, registration, login, PKCE, consent and all 20 tools`);
+  const listing=await maya.listTools();assert.deepEqual(listing.tools.map(t=>t.name).sort(),expectedTools.sort());console.log(`PASS ${kind} OAuth discovery, registration, login, PKCE, consent and all 28 tools`);
   const identity=await tool(maya,'whoami');assert.equal(identity.agent,'maya');assert.ok(identity.connected_agents.some((a:{agent:string})=>a.agent==='charlie'));
   await tool(maya,'remember',{key:'e2e-train',value:'7:40 train',tags:['verification']});
   const found=await tool<any[]>(charlie,'recall',{query:'train'});assert.ok(found.some(f=>f.key==='e2e-train'));
@@ -107,13 +107,36 @@ async function scenario(kind:'DCR'|'CIMD') {
   assert.equal((await tool(maya,'complete_handoff',{id:handoff.id,summary:'E2E handoff complete'})).status,'completed');
   const activity=await tool<any[]>(maya,'activity');for(const kind of ['note_left','handoff_created','handoff_accepted','handoff_completed','fact_stored','snapshot_saved'])assert.ok(activity.some(a=>a.kind===kind),`Missing activity ${kind}`);
   console.log(`PASS ${kind} two-assistant notes, shared facts, snapshots, handoff lifecycle and activity`);
+  const revisions=await tool(maya,'memory_history',{key:'e2e-train'});assert.ok(revisions.revisions.some((revision:any)=>revision.key==='e2e-train'));
+  // Fresh public accounts can save projects and memory, but cannot spend hosted-AI funds.
+  for(const [name,args] of [['think',{text:'Synthetic pending-account verification.'}],['do',{task:'Synthetic pending-account verification.'}]] as const){
+   const result=await maya.callTool({name,arguments:args});assert.equal(result.isError,true,'Pending account must be refused hosted AI');
+   const part=result.content.find(value=>value.type==='text');assert.ok(part&&part.type==='text');assert.match(JSON.parse(part.text).error,/operator approval/i);
+  }
+  const thought=await browser.request('/dashboard/think');assert.equal(thought.status,200);
+  assert.equal((await browser.form('/dashboard/think',{_csrf:csrf(await thought.text()),text:'Synthetic pending-account verification.',depth:'quick'})).status,403);
+  const newJob=await browser.request('/dashboard/jobs/new');assert.equal(newJob.status,200);
+  assert.equal((await browser.form('/dashboard/jobs',{_csrf:csrf(await newJob.text()),task:'Synthetic pending-account verification.',deliver:'brain'})).status,403);
+  const project=await tool(maya,'project_create',{title:'Public OAuth synthetic project',goal:'Verify that free project continuity works across assistants.',allowed_agents:['maya','charlie'],request_id:randomUUID()});
+  const added=await tool(maya,'project_add_item',{project_id:project.id,expected_version:project.version,type:'constraint',title:'Keep the synthetic draft short',content:'The draft should fit in thirty words.',source_type:'assistant_summary',source_refs:[{kind:'statement',label:'Synthetic verification, not a verbatim transcript'}],request_id:randomUUID()});
+  const item=added.items.find((value:any)=>value.type==='constraint');assert.ok(item);assert.equal(item.confirmation,'proposed');
+  const charlieBrief=await tool(charlie,'project_brief',{project_id:project.id});assert.ok(charlieBrief.items.some((value:any)=>value.id===item.id));
+  const changed=await tool(charlie,'project_update_item',{project_id:project.id,item_id:item.id,expected_version:charlieBrief.project.version,content:'The synthetic draft should fit in twenty words.',reason:'Synthetic correction remains attributed and reviewable.',request_id:randomUUID()});
+  const mayaBrief=await tool(maya,'project_brief',{project_id:project.id,since_version:added.project.version});assert.equal(mayaBrief.project.version,changed.project.version);assert.equal(mayaBrief.changed,true);
+  const history=await tool(maya,'project_history',{project_id:project.id});assert.ok(history.events.some((event:any)=>event.kind==='item_updated'));
+  assert.ok((await tool(charlie,'projects_list')).projects.some((value:any)=>value.id===project.id));
+  for(const client of [maya,charlie])await tool(client,'project_brief',{project_id:project.id});
+  const received=await tool(maya,'project_brief',{project_id:project.id});for(const agent of ['maya','charlie'])assert.ok(received.receipts.some((receipt:any)=>receipt.agent_label===agent&&receipt.last_seen_version===received.project.version));
+  console.log('PASS '+kind+' pending hosted-AI refusals, free projects, attributed history and two-assistant retrieval receipts');
+
   const refreshed=await json<Tokens>(await fetch(base+'/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',client_id:clientId,refresh_token:mayaTokens.refresh_token,resource})}));
   assert.notEqual(refreshed.refresh_token,mayaTokens.refresh_token);
   const reused=await fetch(base+'/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',client_id:clientId,refresh_token:mayaTokens.refresh_token,resource})});
   assert.equal(reused.status,400);assert.equal((await reused.json() as {error:string}).error,'invalid_grant');
   const killed=await fetch(resource,{method:'POST',headers:{Authorization:'Bearer '+refreshed.access_token,'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:99,method:'tools/list',params:{}})});assert.equal(killed.status,401);
   console.log(`PASS ${kind} refresh rotates; replay revokes the complete token family`);
-  const exported=await json<any>(await browser.request('/account/export'));assert.equal(exported.account.email,email);for(const key of ['brain_sessions','jobs','usage','usage_reservations','nightly_runs'])assert.ok(Array.isArray(exported[key]),'Missing export collection '+key);assert.ok(exported.notes.some((n:{id:string})=>n.id===note.id));assert.ok(exported.handoffs.some((h:{id:string})=>h.id===handoff.id));assert.ok(exported.facts.some((f:{key:string})=>f.key==='e2e-train'));assert.ok(exported.snapshots.some((s:{id:string})=>s.id===snapshot.id));
+  const exported=await json<any>(await browser.request('/account/export'));assert.equal(exported.account.email,email);for(const key of ['brain_sessions','jobs','usage','usage_reservations','nightly_runs','fact_revisions','account_recovery_codes','ai_access_audit','projects','project_items','project_links','project_events','project_receipts'])assert.ok(Array.isArray(exported[key]),'Missing export collection '+key);assert.ok(exported.notes.some((n:{id:string})=>n.id===note.id));assert.ok(exported.handoffs.some((h:{id:string})=>h.id===handoff.id));assert.ok(exported.facts.some((f:{key:string})=>f.key==='e2e-train'));assert.ok(exported.snapshots.some((s:{id:string})=>s.id===snapshot.id));
+  assert.ok(exported.projects.some((value:any)=>value.id===project.id));assert.equal(exported.jobs.length,0);assert.equal(exported.usage.length,0);assert.equal(exported.usage_reservations.length,0);for(const forbidden of ['account_recovery_codes','password_hash','code_hash','token_hash','grant_key','session_key'])assert.ok(!JSON.stringify(exported).includes('"'+forbidden+'"'),'Export must omit credential fields');
   const confirmation=await browser.request('/account/delete');assert.equal(confirmation.status,200);
   assert.equal((await browser.form('/account/delete',{_csrf:csrf(await confirmation.text()),confirm:'DELETE'})).status,303);deleted=true;
   assert.equal((await browser.request('/account/export')).status,302);
