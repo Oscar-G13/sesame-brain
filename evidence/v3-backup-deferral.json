@@ -1,0 +1,11 @@
+{
+  "checked_at_utc": "2026-11-02T20:58:44.727774+00:00",
+  "scope": "sesame-brain backup cron only",
+  "before_sha256": "b31d7c7b5874e17aaf01061bd4f8fc71375782866ffa2e4363717f0b7ca83174",
+  "after_sha256": "f896ce9939c133846b6193cf33e589070c09fc615ae80cfb66645cecb1846f54",
+  "changed_entries": 1,
+  "unrelated_entries_unchanged": true,
+  "active_brain_backup_entries": 0,
+  "archives_preserved": true,
+  "reenable": "Remove only the BRAIN BACKUP DEFERRED BY OWNER prefix from the original Brain backup entry after backup work is authorized again."
+}

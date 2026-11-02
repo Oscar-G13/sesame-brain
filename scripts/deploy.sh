@@ -10,7 +10,7 @@ git pull --ff-only
 export IMAGE_TAG
 IMAGE_TAG=$(git rev-parse --short=12 HEAD)
 if docker inspect sesame-brain-app-1 >/dev/null 2>&1; then
- scripts/backup.sh
+ # Backup work is deferred by the owner; preserve prior image metadata only.
  docker inspect -f '{{.Image}}' sesame-brain-app-1 > .previous-image
 fi
 docker compose -p sesame-brain build app sandbox

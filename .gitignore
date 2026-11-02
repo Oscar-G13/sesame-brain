@@ -12,3 +12,9 @@ evidence/private*
 .previous-image
 
 .inspector/
+
+private/
+.ops-last-status.json
+.watchdog-failures
+.watchdog.lock
+.test.lock

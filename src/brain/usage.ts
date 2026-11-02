@@ -1,3 +1,4 @@
+import {requireSponsoredAi} from '../auth/access.js';
 import {randomUUID} from 'node:crypto';
 import {pool,transaction} from '../db/index.js';
 import {aiConfig,RESTING} from './config.js';
@@ -19,6 +20,7 @@ export async function reserveUsage(a:Identity,model:string,tokens:number):Promis
   // All reservation and settlement transactions use global lock -> brain lock.
   await db.query('SELECT pg_advisory_xact_lock($1)',[GLOBAL_BUDGET_LOCK]);
   if(!(await db.query('SELECT id FROM brains WHERE user_id=$1 AND id=$2 AND ($3::bigint IS NULL OR content_epoch=$3) FOR UPDATE',[a.user_id,a.brain_id,a.content_epoch??null])).rowCount)throw new Error('Brain unavailable.');
+  await requireSponsoredAi(a,db);
   const day=accountingDay();
   await db.query('INSERT INTO provider_budget_days(local_date) VALUES($1) ON CONFLICT DO NOTHING',[day]);
   const global=(await db.query('SELECT used_tokens+reserved_tokens AS used FROM provider_budget_days WHERE local_date=$1',[day])).rows[0];

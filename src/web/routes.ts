@@ -6,7 +6,9 @@ import { randomBytes } from 'node:crypto';
 import { pool, transaction } from '../db/index.js';
 import { config } from '../config.js';
 import { createSession, destroySession, requireUser, csrf, csrfToken } from '../auth/session.js';
-import { loginRateLimit } from '../auth/rate-limit.js';
+import { getAiAccess,ensureSignupCapacity,RegistrationPausedError } from '../auth/access.js';
+import {generateRecoveryCodes,recoveryCodeCount,resetWithRecoveryCode} from '../auth/recovery.js';
+import { loginRateLimit,recoveryRateLimit } from '../auth/rate-limit.js';
 import { purgeBrainContent,removeUserWorkspaces } from '../brain/purge.js';
 import { dashboardRouter } from './dashboard.js';
 import { passwordError, safeNext, validAgent, validEmail } from './validation.js';
@@ -42,6 +44,7 @@ webRouter.post('/signup', csrf, loginRateLimit, async (req: Request, res: Respon
   const passwordHash = await argon2.hash(password, { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
   try {
     const userId = await transaction(async db => {
+      await ensureSignupCapacity(db);
       const user = await db.query('INSERT INTO users(email,password_hash) VALUES($1,$2) RETURNING id', [email, passwordHash]);
       await db.query("INSERT INTO brains(user_id,name) VALUES($1,'default')", [user.rows[0].id]);
       return user.rows[0].id as string;
@@ -49,6 +52,7 @@ webRouter.post('/signup', csrf, loginRateLimit, async (req: Request, res: Respon
     await createSession(req, res, userId);
     res.redirect(303, next);
   } catch (err) {
+    if(err instanceof RegistrationPausedError)return page(res.status(503),'auth','Registration paused',{mode:'signup',next,email,error:err.message});
     if ((err as { code?: string }).code !== '23505') throw err;
     page(res.status(400), 'auth', 'Create your brain', { mode: 'signup', next, email, error: 'Unable to create an account with those details. Try signing in.' });
   }
@@ -71,17 +75,18 @@ webRouter.post('/logout', csrf, async (req, res) => {
 webRouter.use('/dashboard',dashboardRouter);
 webRouter.get('/account', requireUser, async (req, res) => {
   const grants = await pool.query(`SELECT g.id,g.agent_label,g.client_id,g.created_at,g.last_used_at,c.metadata->>'client_name' AS client_name FROM grants g LEFT JOIN oauth_clients c ON c.client_id=g.client_id WHERE g.user_id=$1 AND g.revoked_at IS NULL ORDER BY g.created_at DESC`, [req.user!.id]);
-  page(res, 'account', 'Your shared brain', { grants: grants.rows, notice: req.query.saved === '1' ? 'Saved.' : undefined });
+  page(res, 'account', 'Your shared brain', { grants: grants.rows, aiAccess:await getAiAccess(req.user!.id), recoveryAvailable:await recoveryCodeCount(req.user!.id), notice: req.query.saved === '1' ? 'Saved.' : undefined });
 });
 webRouter.get('/account/export', requireUser, async (req, res) => {
   const userId = req.user!.id;
   const data = await transaction(async db => {
     await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
-    const result: Record<string, unknown> = { format_version: 2, exported_at: new Date().toISOString(), account: req.user };
-    for (const table of ['brains','notes','handoffs','facts','snapshots','activity','brain_sessions','jobs','usage','usage_reservations','nightly_runs']) {
+    const result: Record<string, unknown> = { format_version: 3, exported_at: new Date().toISOString(), account: req.user };
+    for (const table of ['brains','notes','handoffs','facts','snapshots','activity','brain_sessions','jobs','usage','usage_reservations','nightly_runs','fact_revisions','projects','project_items','project_links','project_events','project_receipts','ai_access_audit']) {
       const rows=(await db.query(`SELECT * FROM ${table} WHERE user_id=$1`, [userId])).rows;
-      result[table] = rows.map(row=>{const {session_key,transport_session_id,token_hash,password_hash,secret_hash,lease_id,...safe}=row;return safe;});
+      result[table] = rows.map(row=>{const {session_key,transport_session_id,token_hash,password_hash,secret_hash,lease_id,grant_key,...safe}=row;return safe;});
     }
+    result.ai_access = await getAiAccess(userId,db);
     result.connections = (await db.query('SELECT id,brain_id,agent_label,client_id,scope,created_at,last_used_at,revoked_at FROM grants WHERE user_id=$1', [userId])).rows;
     result.oauth_clients = (await db.query('SELECT c.client_id,c.kind,c.metadata,c.created_at,c.last_seen_at FROM oauth_clients c WHERE EXISTS(SELECT 1 FROM grants g WHERE g.client_id=c.client_id AND g.user_id=$1)', [userId])).rows;
     return result;
@@ -149,4 +154,21 @@ webRouter.post('/account/delete', requireUser, csrf, async (req, res) => {
   await removeUserWorkspaces(req.user!.id);
   await destroySession(req, res);
   res.redirect(303, '/');
+});
+
+webRouter.get('/recover',(req,res)=>page(res,'recover','Recover your account',{email:'',error:undefined}));
+webRouter.post('/recover',csrf,recoveryRateLimit,async(req:Request,res:Response)=>{
+ const email=typeof req.body.email==='string'?req.body.email.trim().toLowerCase():'';
+ const password=req.body.password,validation=passwordError(password);
+ if(validation)return page(res.status(400),'recover','Recover your account',{email,error:validation});
+ const success=validEmail(email)&&typeof req.body.recovery_code==='string'&&await resetWithRecoveryCode(email,req.body.recovery_code,password);
+ if(!success)return page(res.status(400),'recover','Recover your account',{email,error:'Email or recovery code did not match. Each code works once.'});
+ await destroySession(req,res);res.redirect(303,'/login?recovered=1');
+});
+webRouter.get('/account/recovery',requireUser,async(req,res)=>page(res,'recovery','Recovery codes',{codes:undefined,recoveryAvailable:await recoveryCodeCount(req.user!.id)}));
+webRouter.post('/account/recovery',requireUser,csrf,loginRateLimit,async(req:Request,res:Response)=>{
+ const password=typeof req.body.current_password==='string'?req.body.current_password:'';
+ const codes=await generateRecoveryCodes(req.user!.id,password);
+ if(!codes)return page(res.status(400),'recovery','Recovery codes',{codes:undefined,recoveryAvailable:await recoveryCodeCount(req.user!.id),error:'Current password did not match.'});
+ res.set('Cache-Control','no-store');page(res,'recovery','Save your recovery codes',{codes,recoveryAvailable:codes.length,notice:'Save these codes now. They will not be shown again. Previous codes no longer work.'});
 });
