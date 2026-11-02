@@ -90,13 +90,13 @@ test('sessions derive identity from token+agent, reuse before30minutes, and rene
  const renewed=await touchSession(a,{now:new Date(now.getTime()+60*60000)});assert.equal(renewed.firstTouch,true);assert.notEqual(renewed.session.id,first.session.id);
  const otherToken=await touchSession({...a,token_hash:'another-issued-token-hash'},{now:new Date(now.getTime()+61*60000)});assert.notEqual(otherToken.session.id,renewed.session.id);
 });
-test('first touch briefings are cached, scoped, word-bounded and acknowledge explicit delivered jobs only',async()=>{
+test('deterministic first touch is scoped, word-bounded and does not call AI or acknowledge jobs internally',async()=>{
  const a=await fixture(),b=await fixture();await fact(a,'train','Take the 7:40 train.');const completed=await job(a,'Train comparison','Take the earlier train.'),foreign=await job(b,'B comparison','Private');
  let calls=0;
  const summarizer:SessionSummarizer=async(purpose,text)=>{calls++;assert.equal(purpose,'briefing');assert.ok(text.includes('7:40'));assert.ok(!text.includes('Private'));return{text:'Train comparison is finished. '+('word '.repeat(180)),surfacedJobIds:[completed,foreign]};};
  const first=await touchSession(a,{summarizer});assert.ok(first.briefing);assert.ok(first.briefing.split(/\s+/).length<=150);
- const second=await touchSession(a,{summarizer});assert.equal(second.firstTouch,false);assert.equal(second.briefing,undefined);assert.equal(calls,1);
- assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[completed])).rows[0].surfaced_to,['maya']);
+ const second=await touchSession(a,{summarizer});assert.equal(second.firstTouch,false);assert.equal(second.briefing,undefined);assert.equal(calls,0);
+ assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[completed])).rows[0].surfaced_to,[]);
  assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[foreign])).rows[0].surfaced_to,[]);
 });
 test('trailers count only own jobs and remind about zero writes after five minutes under20words',async()=>{

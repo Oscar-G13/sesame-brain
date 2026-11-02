@@ -6,12 +6,12 @@ export type Audience=string[];
 export type SourceType='legacy'|'assistant_record'|'user_report'|'model_derived'|'user_correction';
 export type Confidence='unknown'|'low'|'moderate'|'high';
 export type Confirmation='unconfirmed'|'user_confirmed'|'disputed';
-export interface SourceRef{collection:'notes'|'facts'|'snapshots'|'handoffs'|'jobs'|'fact_revisions'|'projects'|'project_items'|'project_events';id:string;}
+export interface SourceRef{collection:'notes'|'facts'|'snapshots'|'handoffs'|'jobs'|'fact_revisions'|'projects'|'project_items'|'project_events'|'brain_sessions';id:string;}
 export interface MemoryWriteOptions{sessionId?:string;sourceAudience?:Audience;provenance?:{source_type?:SourceType;confidence?:Confidence;confirmation?:Confirmation;source_refs?:SourceRef[];reason?:string};}
 type Db=pg.PoolClient;
 export class MemoryError extends Error{constructor(message:string,public readonly status=400){super(message);}}
 const uuid=z.string().uuid();
-const refsSchema=z.array(z.object({collection:z.enum(['notes','facts','snapshots','handoffs','jobs','fact_revisions','projects','project_items','project_events']),id:uuid})).max(40);
+const refsSchema=z.array(z.object({collection:z.enum(['notes','facts','snapshots','handoffs','jobs','fact_revisions','projects','project_items','project_events','brain_sessions']),id:uuid})).max(40);
 export function ownerContext(a:AuthContext):boolean{return Boolean((a.client_id==='dashboard'&&a.browser_session_id)||a.owner_access);}
 export function normalizeAudience(value:Audience|undefined):Audience{
  const list=[...new Set(value??['all'])];if(!list.length||list.length>32||list.some(v=>!/^([a-z0-9-]{1,32}|all)$/.test(v)))throw new MemoryError('Invalid source audience.');

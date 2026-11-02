@@ -1,3 +1,4 @@
+import {buildContinuity,type ContinuityPacket} from './continuity.js';
 import {createHash} from 'node:crypto';
 import type pg from 'pg';
 import {pool,transaction} from '../db/index.js';
@@ -9,12 +10,12 @@ export interface BrainSession {
  id:string;user_id:string;brain_id:string;agent_label:string;session_key:string;transport_session_id:string|null;
  request_grant_id:string|null;browser_session_id:string|null;source:'oauth'|'dashboard';writable:boolean;content_epoch:string;started_at:Date;last_activity_at:Date;closed_at:Date|null;
  write_count:number;activity_count:number;think_count:number;do_count:number;rolled_up_snapshot_id:string|null;
- briefing:string|null;briefing_at:Date|null;last_snapshot_at:Date|null;rollup_claimed_at:Date|null;rollup_error:string|null;to_agents:string[];source_refs:SourceRef[];
+ briefing:string|null;briefing_at:Date|null;last_snapshot_at:Date|null;rollup_claimed_at:Date|null;rollup_error:string|null;to_agents:string[];source_refs:SourceRef[];last_project_id:string|null;resume_count:string|number;resumed_at:Date|null;
 }
 export type SummaryResult=string|{text:string;surfacedJobIds?:string[]};
 export type SessionSummarizer=(purpose:'briefing'|'rollup',text:string,auth:AuthContext)=>Promise<SummaryResult>;
-export interface SessionOptions {now?:Date;transportSessionId?:string;summarizer?:SessionSummarizer;idleMinutes?:number;rollupMinutes?:number;userId?:string;brainId?:string;}
-export interface SessionTouch {session:BrainSession;firstTouch:boolean;briefing?:string;}
+export interface SessionOptions {skipContinuity?:boolean;projectId?:string;closeOnUnavailable?:boolean;now?:Date;transportSessionId?:string;summarizer?:SessionSummarizer;idleMinutes?:number;rollupMinutes?:number;userId?:string;brainId?:string;}
+export interface SessionTouch {session:BrainSession;firstTouch:boolean;briefing?:string;continuity?:ContinuityPacket;}
 export interface SessionEvent {tool:string;write:boolean;summary?:string;refId?:string;collection?:string;now?:Date;sourceAudience?:string[];sourceRefs?:SourceRef[];}
 export interface RollupResult {closed:boolean;snapshotId:string|null;disabled?:boolean;inProgress?:boolean;stale?:boolean;missing?:boolean;message:string;}
 function minutes(value:number|undefined,env:string,fallback:number):number{
@@ -38,26 +39,6 @@ async function currentGrant(db:pg.PoolClient,a:AuthContext,write=false):Promise<
 }
 function summaryText(result:SummaryResult):string{return typeof result==='string'?result:result.text;}
 function spokenWords(text:string,max=150):string{return text.trim().split(/\s+/u).slice(0,max).join(' ');}
-type Delta={text:string;includedJobIds:string[];audience:string[];sourceRefs:SourceRef[]};
-async function briefingDelta(a:AuthContext,session:BrainSession):Promise<Delta>{
- const tenant=[a.user_id,a.brain_id],parts:string[]=[],jobsIncluded:string[]=[],sourceRefs:SourceRef[]=[];
- const previous=await pool.query('SELECT last_activity_at FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id<>$4 ORDER BY last_activity_at DESC LIMIT 1',[...tenant,a.agent_label,session.id]);
- const since=previous.rows[0]?.last_activity_at??new Date(0);
- const jp:unknown[]=[...tenant,a.agent_label],jv=memoryAccessSql('jobs','j',a,jp);
- const jobs=await pool.query("SELECT j.id,j.title,j.result_summary,left(j.result_text,2000) AS excerpt FROM jobs j WHERE user_id=$1 AND brain_id=$2 AND state IN ('done','partial') AND NOT $3=ANY(surfaced_to) AND "+jv+' ORDER BY finished_at DESC NULLS LAST LIMIT 20',jp);
- for(const row of jobs.rows){const line='Completed job '+row.id+' ('+row.title+'): '+(row.result_summary??row.excerpt??'The result is ready.');if(Buffer.byteLength([...parts,line].join('\n\n'))<=12000){parts.push(line);jobsIncluded.push(row.id);sourceRefs.push({collection:'jobs',id:row.id});}}
- const hp:unknown[]=[...tenant],hv=memoryAccessSql('handoffs','h',a,hp);
- const handoffs=await pool.query("SELECT id,title,from_agent,left(context,1000) AS excerpt FROM handoffs h WHERE user_id=$1 AND brain_id=$2 AND status IN ('pending','accepted') AND "+hv+' ORDER BY created_at DESC LIMIT 20',hp);
- for(const row of handoffs.rows){parts.push('Open handoff from '+row.from_agent+': '+row.title+'\n'+row.excerpt);sourceRefs.push({collection:'handoffs',id:row.id});}
- const sp:unknown[]=[...tenant,a.agent_label,since],sv=memoryAccessSql('snapshots','s',a,sp);
- const snapshots=await pool.query('SELECT id,title,kind,agent_label,created_at,left(content,1000) AS excerpt FROM snapshots s WHERE user_id=$1 AND brain_id=$2 AND agent_label<>$3 AND created_at>$4 AND '+sv+' ORDER BY created_at DESC LIMIT 10',sp);
- for(const row of snapshots.rows){parts.push('Snapshot from '+row.agent_label+' ('+row.kind+'): '+(row.title??'Untitled')+'\n'+row.excerpt);sourceRefs.push({collection:'snapshots',id:row.id});}
- const fp:unknown[]=[...tenant,since],fv=memoryAccessSql('facts','f',a,fp);
- const facts=await pool.query('SELECT id,key,value,confirmation FROM facts f WHERE user_id=$1 AND brain_id=$2 AND updated_at>$3 AND '+fv+' ORDER BY updated_at DESC LIMIT 100',fp);
- for(const row of facts.rows){parts.push('Updated memory ['+row.confirmation+'] '+row.key+': '+row.value);sourceRefs.push({collection:'facts',id:row.id});}
- const audience=await transaction(async db=>{let audience=['all'];for(let at=0;at<sourceRefs.length;at+=40)audience=intersectAudiences(audience,(await validateSourceRefs(db,a,sourceRefs.slice(at,at+40))).audience);return audience;});
- return{text:trimUtf8(parts.join('\n\n'),20000),includedJobIds:jobsIncluded,audience,sourceRefs:sourceRefs.slice(0,40)};
-}
 export async function touchSession(a:AuthContext,options:SessionOptions={}):Promise<SessionTouch>{
  const now=options.now??new Date(),key=sessionKey(a,options.transportSessionId);
  const idle=minutes(options.idleMinutes,'BRAIN_SESSION_IDLE_MIN',30)*60000;
@@ -75,29 +56,15 @@ export async function touchSession(a:AuthContext,options:SessionOptions={}):Prom
   const inserted=await db.query('INSERT INTO brain_sessions(user_id,brain_id,agent_label,session_key,transport_session_id,request_grant_id,writable,content_epoch,started_at,last_activity_at,browser_session_id,source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11) RETURNING *',[a.user_id,a.brain_id,a.agent_label,key,options.transportSessionId??null,isDashboard(a)?null:a.grant_id,a.scopes.includes('brain:write'),brain.rows[0].content_epoch,now,isDashboard(a)?a.browser_session_id??null:null,isDashboard(a)?'dashboard':'oauth']);
   return{session:rowSession(inserted.rows[0]),firstTouch:true};
  });
- if(!touch.firstTouch||!options.summarizer||!touch.session.writable||!a.scopes.includes('brain:read')||!(await pool.query("SELECT 1 FROM users WHERE id=$1 AND ai_access_state='approved'",[a.user_id])).rowCount)return touch;
- const delta=await briefingDelta(a,touch.session);if(!delta.text)return touch;
- try{
-  const generated=await options.summarizer('briefing',delta.text,a),briefing=spokenWords(summaryText(generated));
-  if(!briefing)return touch;
-  const delivered=typeof generated==='string'?[]:(generated.surfacedJobIds??[]).filter(id=>delta.includedJobIds.includes(id));
-  const saved=await transaction(async db=>{
-   const brain=await db.query('SELECT content_epoch FROM brains WHERE user_id=$1 AND id=$2 FOR UPDATE',[a.user_id,a.brain_id]);
-   if(!brain.rowCount||String(brain.rows[0].content_epoch)!==touch.session.content_epoch||!await currentGrant(db,a))return false;
-   const current=(await db.query('SELECT to_agents,source_refs FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL FOR UPDATE',[a.user_id,a.brain_id,a.agent_label,touch.session.id])).rows[0];if(!current)return false;
-   const audience=intersectAudiences(current.to_agents,delta.audience),refs=[...new Map([...(current.source_refs??[]),...delta.sourceRefs].map((ref:SourceRef)=>[ref.collection+':'+ref.id,ref])).values()].slice(-40);
-   const updated=await db.query('UPDATE brain_sessions SET briefing=$5,briefing_at=$6,to_agents=$7,source_refs=$8 WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL RETURNING id',[a.user_id,a.brain_id,a.agent_label,touch.session.id,briefing,now,audience,JSON.stringify(refs)]);
-   if(!updated.rowCount)return false;
-   touch.session.to_agents=audience;touch.session.source_refs=refs;
-   if(delivered.length)await db.query('UPDATE jobs SET surfaced_to=array_append(surfaced_to,$3) WHERE user_id=$1 AND brain_id=$2 AND id=ANY($4::uuid[]) AND NOT $3=ANY(surfaced_to)',[a.user_id,a.brain_id,a.agent_label,delivered]);
-   return true;
-  });
-  if(saved){touch.session.briefing=briefing;touch.session.briefing_at=now;return{...touch,briefing};}
- }catch{
-  // A missing, timed-out or failed model must not fabricate a briefing or acknowledge jobs.
- }
- return touch;
+ if(!touch.firstTouch||options.skipContinuity)return touch;
+ const continuity=await buildContinuity({...a,expected_content_epoch:Number(touch.session.content_epoch)},{sessionId:touch.session.id,projectId:options.projectId});
+ touch.session.to_agents=intersectAudiences(touch.session.to_agents,continuity.source_audience);
+ touch.session.source_refs=[...new Map([...(touch.session.source_refs??[]),...continuity.source_refs].map(ref=>[ref.collection+':'+ref.id,ref])).values()].slice(-40);
+ touch.session.last_project_id=continuity.project?.id??touch.session.last_project_id;
+ touch.session.resume_count=continuity.resume_count??touch.session.resume_count;
+ return{...touch,continuity,...(continuity.saved_context?{briefing:continuity.briefing}:{})};
 }
+
 export async function recordSessionActivity(a:AuthContext,sessionId:string,event:SessionEvent):Promise<void>{
  if(event.write&&!a.scopes.includes('brain:write'))throw new Error('brain:write is required.');
  const now=event.now??new Date();
@@ -156,6 +123,10 @@ export async function rollupSession(a:AuthContext,sessionId:string,options:Sessi
    return{result:{closed:true,snapshotId:null,message:'Your session is closed.'} as RollupResult};
   }
   if(session.content_epoch!==String(brain.rows[0].content_epoch))return{result:{closed:false,snapshotId:null,missing:true,message:'This session predates a memory purge.'} as RollupResult};
+  if(options.closeOnUnavailable&&(!options.summarizer||!(await db.query("SELECT 1 FROM users WHERE id=$1 AND ai_access_state='approved'",[a.user_id])).rowCount)){
+   await db.query('UPDATE brain_sessions SET closed_at=$5,rollup_claimed_at=NULL WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4',[a.user_id,a.brain_id,a.agent_label,sessionId,now]);
+   return{result:{closed:true,snapshotId:null,disabled:true,message:'This call is closed. Your saved records remain available; no automatic summary was generated.'} as RollupResult};
+  }
   if(!(await db.query("SELECT 1 FROM users WHERE id=$1 AND ai_access_state='approved'",[a.user_id])).rowCount)return{result:{closed:false,snapshotId:null,disabled:true,message:'Automatic summaries are not enabled for this account.'} as RollupResult};
   if(!options.summarizer)return{result:{closed:false,snapshotId:null,disabled:true,message:'Automatic snapshots are unavailable until the AI provider is configured. Your saved notes remain available.'} as RollupResult};
   if(session.rollup_claimed_at&&now.getTime()-session.rollup_claimed_at.getTime()<120000)return{result:{closed:false,snapshotId:null,inProgress:true,message:'Your call is already being saved.'} as RollupResult};
@@ -167,6 +138,17 @@ export async function rollupSession(a:AuthContext,sessionId:string,options:Sessi
  let generated:string;
  try{generated=summaryText(await options.summarizer!('rollup',await sessionMaterial(a,claimed),a)).trim();if(!generated)throw new Error('Empty summary');}
  catch{
+  if(options.closeOnUnavailable){
+   const closed=await pool.query("UPDATE brain_sessions SET closed_at=$5,rollup_claimed_at=NULL,rollup_error=$6 WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND content_epoch=$7 AND closed_at IS NULL AND activity_count=$8 AND date_trunc('milliseconds',last_activity_at)=$9 RETURNING id",[a.user_id,a.brain_id,a.agent_label,sessionId,now,'summary_unavailable',claimed.content_epoch,claimed.activity_count,claimed.last_activity_at]);
+   if(!closed.rowCount){
+    const current=(await pool.query('SELECT closed_at,rolled_up_snapshot_id FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4',[a.user_id,a.brain_id,a.agent_label,sessionId])).rows[0];
+    if(!current)return{closed:false,snapshotId:null,missing:true,message:'This session is no longer available.'};
+    if(current.closed_at)return{closed:true,snapshotId:current.rolled_up_snapshot_id,message:'This session is closed.'};
+    await pool.query('UPDATE brain_sessions SET rollup_claimed_at=NULL WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL',[a.user_id,a.brain_id,a.agent_label,sessionId]);
+    return{closed:false,snapshotId:null,stale:true,message:'The conversation continued, so this session remains open.'};
+   }
+   return{closed:true,snapshotId:null,disabled:true,message:'This call is closed. Your saved records remain available; no automatic summary was generated.'};
+  }
   await pool.query('UPDATE brain_sessions SET rollup_claimed_at=NULL,rollup_error=$5 WHERE user_id=$1 AND brain_id=$2 AND agent_label=$3 AND id=$4 AND closed_at IS NULL',[a.user_id,a.brain_id,a.agent_label,sessionId,'summary_unavailable']);
   return{closed:false,snapshotId:null,disabled:true,message:'Your notes are saved, but the call summary is unavailable right now.'};
  }
