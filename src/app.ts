@@ -20,8 +20,9 @@ app.use((req,res,next) => {
  next();
 });
 app.use('/.well-known',(req,res,next)=>{res.set({'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version','Access-Control-Expose-Headers':'Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version, WWW-Authenticate'});if(req.method==='OPTIONS'){res.sendStatus(204);return;}next();});
+app.use(['/register','/token','/revoke'],(req,res,next)=>{res.set({'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Expose-Headers':'WWW-Authenticate'});if(req.method==='OPTIONS'){res.sendStatus(204);return;}next();});
 app.use(express.urlencoded({extended:false, limit:'256kb'}));
-app.use(express.json({limit:'512kb'}));
+app.use(express.json({limit:'1mb'}));
 app.use(cookieParser());
 app.use('/public', express.static(resolve('src/web/public'), {maxAge:3600000,etag:true}));
 app.get('/health', async (_req,res) => { try { await pool.query('SELECT 1');res.json({ok:true,db:'ok',version:config.version,uptime:Math.floor(process.uptime())}); } catch {res.status(503).json({ok:false,db:'unavailable',version:config.version,uptime:Math.floor(process.uptime())});}});
