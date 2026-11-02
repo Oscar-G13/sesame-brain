@@ -144,7 +144,7 @@ test('HTTP transport serves modern SDK and legacy requests with bearer, CORS, 40
   const preflight=await fetch(url,{method:'OPTIONS',headers:{origin:'https://example-client.test','access-control-request-headers':'authorization,content-type'}});
   assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),'*');
   await client.connect(new StreamableHTTPClientTransport(url,{requestInit:{headers:{Authorization:'Bearer '+a.token}}}));
-  const tools=await client.listTools();assert.equal(tools.tools.length,28);
+  const tools=await client.listTools();assert.equal(tools.tools.length,29);
   const me=await client.callTool({name:'whoami',arguments:{}});assert.ok(Array.isArray(me.content));assert.equal(JSON.parse((me.content[0] as {type:string;text:string}).text).agent,'maya');
   const denied=await client.callTool({name:'get_snapshot',arguments:{id:foreign.id}});assert.equal(denied.isError,true);assert.ok(!JSON.stringify(denied).includes('Foreign private backup'));
   const legacy=await fetch(url,{method:'POST',headers:{authorization:'Bearer '+a.token,'content-type':'application/json',accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:5,method:'initialize',params:{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'Legacy fixture',version:'1.0'}}})});
