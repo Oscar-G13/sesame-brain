@@ -1,0 +1,27 @@
+{
+  "oauth_flow": "pass",
+  "registration": "dynamic",
+  "login_form": "pass",
+  "consent": "pass",
+  "agent": "inspector",
+  "loopback_callback": "pass",
+  "cli_exit_code": 0,
+  "tool_count": 15,
+  "tools": [
+    "whoami",
+    "inbox",
+    "read_notes",
+    "recall",
+    "list_snapshots",
+    "get_snapshot",
+    "activity",
+    "leave_note",
+    "mark_notes_read",
+    "handoff",
+    "accept_handoff",
+    "complete_handoff",
+    "remember",
+    "forget",
+    "save_snapshot"
+  ]
+}

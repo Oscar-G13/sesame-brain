@@ -1,0 +1,251 @@
+ Container sesame-brain-testdb-1 Running 
+ Container sesame-brain-testdb-1 Waiting 
+ Container sesame-brain-testdb-1 Healthy 
+ Container sesame-brain-dev-run-e45dee5cdd12 Creating 
+ Container sesame-brain-dev-run-e45dee5cdd12 Created 
+
+> sesame-brain@1.0.0 test
+> tsx --test test/*.test.ts
+
+TAP version 13
+# {"time":"2026-11-02T06:54:07.146Z","method":"POST","path":"/account/grants/:id/revoke","status":403,"duration_ms":8}
+# {"time":"2026-11-02T06:54:07.152Z","method":"POST","path":"/account/grants/:id/rename","status":303,"duration_ms":3}
+# {"time":"2026-11-02T06:54:07.155Z","method":"POST","path":"/account/grants/:id/revoke","status":303,"duration_ms":2}
+# {"time":"2026-11-02T06:54:07.162Z","method":"GET","path":"/account/export","status":200,"duration_ms":3}
+# {"time":"2026-11-02T06:54:07.165Z","method":"POST","path":"/account/grants/:id/rename","status":303,"duration_ms":1}
+# {"time":"2026-11-02T06:54:07.168Z","method":"POST","path":"/account/grants/:id/revoke","status":303,"duration_ms":1}
+# {"time":"2026-11-02T06:54:07.173Z","method":"POST","path":"/account/delete","status":400,"duration_ms":4}
+# {"time":"2026-11-02T06:54:07.176Z","method":"POST","path":"/account/delete","status":303,"duration_ms":2}
+# {"time":"2026-11-02T06:54:07.179Z","method":"GET","path":"/account","status":302,"duration_ms":1}
+# Subtest: real account session cannot rename/revoke/export/delete another user; own actions succeed
+ok 1 - real account session cannot rename/revoke/export/delete another user; own actions succeed
+  ---
+  duration_ms: 93.224351
+  type: 'test'
+  ...
+# Subtest: PKCE S256 uses RFC 7636 vector and rejects wrong/malformed verifier
+ok 2 - PKCE S256 uses RFC 7636 vector and rejects wrong/malformed verifier
+  ---
+  duration_ms: 11.685708
+  type: 'test'
+  ...
+# Subtest: Opaque tokens have 256 bits and only SHA-256 hash is persisted
+ok 3 - Opaque tokens have 256 bits and only SHA-256 hash is persisted
+  ---
+  duration_ms: 0.201247
+  type: 'test'
+  ...
+# Subtest: audience canonicalization rejects foreign resources
+ok 4 - audience canonicalization rejects foreign resources
+  ---
+  duration_ms: 0.178504
+  type: 'test'
+  ...
+# Subtest: redirects require exact match except loopback port only
+ok 5 - redirects require exact match except loopback port only
+  ---
+  duration_ms: 0.270877
+  type: 'test'
+  ...
+# Subtest: CIMD validates exact client identity, required fields and registered redirect URIs
+ok 6 - CIMD validates exact client identity, required fields and registered redirect URIs
+  ---
+  duration_ms: 0.31541
+  type: 'test'
+  ...
+# Subtest: CIMD blocks private, loopback, link-local, CGNAT and mapped addresses after DNS
+ok 7 - CIMD blocks private, loopback, link-local, CGNAT and mapped addresses after DNS
+  ---
+  duration_ms: 1.593806
+  type: 'test'
+  ...
+# Subtest: CIMD rejects oversized body and invalid JSON
+ok 8 - CIMD rejects oversized body and invalid JSON
+  ---
+  duration_ms: 0.237214
+  type: 'test'
+  ...
+# Subtest: CIMD stream caps at 64 KiB, pins validated DNS address, and does not follow redirects
+ok 9 - CIMD stream caps at 64 KiB, pins validated DNS address, and does not follow redirects
+  ---
+  duration_ms: 1.324772
+  type: 'test'
+  ...
+# Subtest: CIMD absolute deadline aborts slow streaming and prevents post-deadline DNS fetch
+ok 10 - CIMD absolute deadline aborts slow streaming and prevents post-deadline DNS fetch
+  ---
+  duration_ms: 55.363793
+  type: 'test'
+  ...
+# Subtest: agent labels use lowercase letters digits hyphens and reserve all
+ok 11 - agent labels use lowercase letters digits hyphens and reserve all
+  ---
+  duration_ms: 0.338414
+  type: 'test'
+  ...
+# Subtest: authorization code binds client/redirect/PKCE/audience and replay revokes issued grant
+ok 12 - authorization code binds client/redirect/PKCE/audience and replay revokes issued grant
+  ---
+  duration_ms: 11.091906
+  type: 'test'
+  ...
+# Subtest: refresh rotates atomically; reuse revokes entire family and outstanding access tokens
+ok 13 - refresh rotates atomically; reuse revokes entire family and outstanding access tokens
+  ---
+  duration_ms: 6.737561
+  type: 'test'
+  ...
+# Subtest: revocation cannot revoke another client token; valid revoke invalidates access and refresh
+ok 14 - revocation cannot revoke another client token; valid revoke invalidates access and refresh
+  ---
+  duration_ms: 5.284909
+  type: 'test'
+  ...
+# {"event":"oauth_error","path":"/authorize","error":"invalid_redirect_uri","grant_type":"other","client_id_shape":"opaque"}
+# Subtest: OAuth HTTP rejects unregistered redirects and missing/plain PKCE without unsafe redirects
+ok 15 - OAuth HTTP rejects unregistered redirects and missing/plain PKCE without unsafe redirects
+  ---
+  duration_ms: 23.408707
+  type: 'test'
+  ...
+# {"event":"oauth_error","path":"/token","error":"invalid_client","grant_type":"authorization_code","client_id_shape":"opaque"}
+# {"event":"oauth_error","path":"/token","error":"invalid_client","grant_type":"authorization_code","client_id_shape":"opaque"}
+# {"event":"oauth_error","path":"/token","error":"invalid_client","grant_type":"authorization_code","client_id_shape":"opaque"}
+# {"event":"oauth_error","path":"/token","error":"invalid_client","grant_type":"authorization_code","client_id_shape":"opaque"}
+# Subtest: DCR issues secrets only for declared confidential methods and token endpoint enforces basic/post authentication
+ok 16 - DCR issues secrets only for declared confidential methods and token endpoint enforces basic/post authentication
+  ---
+  duration_ms: 34.473212
+  type: 'test'
+  ...
+# Subtest: account mutation lock prevents authorization or refresh issuance after signout revocation
+ok 17 - account mutation lock prevents authorization or refresh issuance after signout revocation
+  ---
+  duration_ms: 39.827992
+  type: 'test'
+  ...
+# Subtest: Bearer HTTP scheme names are case-insensitive while token values remain case-sensitive
+ok 18 - Bearer HTTP scheme names are case-insensitive while token values remain case-sensitive
+  ---
+  duration_ms: 4.737644
+  type: 'test'
+  ...
+# Subtest: every tool rejects a token identity combined with another user brain
+ok 19 - every tool rejects a token identity combined with another user brain
+  ---
+  duration_ms: 29.284313
+  type: 'test'
+  ...
+# Subtest: real token A cannot discover or mutate user B data through any tool or guessed ids
+ok 20 - real token A cannot discover or mutate user B data through any tool or guessed ids
+  ---
+  duration_ms: 25.13422
+  type: 'test'
+  ...
+# Subtest: broadcast notes track reading per assistant and targeted notes stay private
+ok 21 - broadcast notes track reading per assistant and targeted notes stay private
+  ---
+  duration_ms: 6.922677
+  type: 'test'
+  ...
+# Subtest: handoffs transition only for the recipient, with automatic notes and all write activity
+ok 22 - handoffs transition only for the recipient, with automatic notes and all write activity
+  ---
+  duration_ms: 8.123827
+  type: 'test'
+  ...
+# Subtest: snapshot retention keeps 50 per agent and never prunes another assistant
+ok 23 - snapshot retention keeps 50 per agent and never prunes another assistant
+  ---
+  duration_ms: 39.773831
+  type: 'test'
+  ...
+# Subtest: bearer rejects invalid audience, expired and revoked grants, and enforces tool scopes
+ok 24 - bearer rejects invalid audience, expired and revoked grants, and enforces tool scopes
+  ---
+  duration_ms: 3.952875
+  type: 'test'
+  ...
+# Subtest: database rejects content rows assigned to a mismatched user and brain
+ok 25 - database rejects content rows assigned to a mismatched user and brain
+  ---
+  duration_ms: 1.971393
+  type: 'test'
+  ...
+# Subtest: HTTP transport serves modern SDK and legacy requests with bearer, CORS, 403 scopes and 405 session methods
+ok 26 - HTTP transport serves modern SDK and legacy requests with bearer, CORS, 403 scopes and 405 session methods
+  ---
+  duration_ms: 92.832546
+  type: 'test'
+  ...
+# Subtest: real SDK token A exercises all 15 tools while every B row stays unchanged
+ok 27 - real SDK token A exercises all 15 tools while every B row stays unchanged
+  ---
+  duration_ms: 79.974161
+  type: 'test'
+  ...
+# Subtest: HTTP accepts and retrieves the full 200000-character CJK snapshot within a one MiB body limit
+ok 28 - HTTP accepts and retrieves the full 200000-character CJK snapshot within a one MiB body limit
+  ---
+  duration_ms: 36.796174
+  type: 'test'
+  ...
+# {"time":"2026-11-02T06:54:08.684Z","method":"GET","path":"/signup","status":200,"duration_ms":6}
+# {"time":"2026-11-02T06:54:08.697Z","method":"POST","path":"/signup","status":403,"duration_ms":6}
+# {"time":"2026-11-02T06:54:08.812Z","method":"POST","path":"/signup","status":303,"duration_ms":114}
+# {"time":"2026-11-02T06:54:08.825Z","method":"GET","path":"/account","status":200,"duration_ms":10}
+# {"time":"2026-11-02T06:54:08.829Z","method":"POST","path":"/account/grants/:id/rename","status":303,"duration_ms":2}
+# {"time":"2026-11-02T06:54:08.832Z","method":"GET","path":"/account/password","status":200,"duration_ms":1}
+# {"time":"2026-11-02T06:54:09.053Z","method":"POST","path":"/account/password","status":303,"duration_ms":220}
+# {"time":"2026-11-02T06:54:09.057Z","method":"GET","path":"/account","status":200,"duration_ms":2}
+# {"time":"2026-11-02T06:54:09.061Z","method":"POST","path":"/account/signout-everywhere","status":303,"duration_ms":2}
+# {"time":"2026-11-02T06:54:09.064Z","method":"GET","path":"/login","status":200,"duration_ms":1}
+# {"time":"2026-11-02T06:54:09.172Z","method":"POST","path":"/login","status":303,"duration_ms":107}
+# {"time":"2026-11-02T06:54:09.176Z","method":"GET","path":"/account/export","status":200,"duration_ms":3}
+# {"time":"2026-11-02T06:54:09.178Z","method":"GET","path":"/account/delete","status":200,"duration_ms":1}
+# {"time":"2026-11-02T06:54:09.180Z","method":"POST","path":"/account/delete","status":400,"duration_ms":1}
+# {"time":"2026-11-02T06:54:09.182Z","method":"POST","path":"/account/delete","status":303,"duration_ms":1}
+# Subtest: account forms enforce CSRF, update grant identity, invalidate pending codes, revoke sessions, and delete live data
+ok 29 - account forms enforce CSRF, update grant identity, invalidate pending codes, revoke sessions, and delete live data
+  ---
+  duration_ms: 526.343214
+  type: 'test'
+  ...
+# Subtest: password checks minimum length and bundled common passwords
+ok 30 - password checks minimum length and bundled common passwords
+  ---
+  duration_ms: 0.444232
+  type: 'test'
+  ...
+# Subtest: return URL keeps redirects on this origin
+ok 31 - return URL keeps redirects on this origin
+  ---
+  duration_ms: 0.104055
+  type: 'test'
+  ...
+# Subtest: agent labels reserve broadcast and enforce slug length
+ok 32 - agent labels reserve broadcast and enforce slug length
+  ---
+  duration_ms: 0.147897
+  type: 'test'
+  ...
+# Subtest: consent renders all identities unselected and escapes client-controlled metadata
+ok 33 - consent renders all identities unselected and escapes client-controlled metadata
+  ---
+  duration_ms: 1.582735
+  type: 'test'
+  ...
+1..33
+# tests 33
+# suites 0
+# pass 33
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2549.705697
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

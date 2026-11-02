@@ -1,0 +1,7 @@
+{
+  "ok": true,
+  "known_secret_values_checked": 4,
+  "git_history_clean": true,
+  "container_logs_clean": true,
+  "memory_markers_absent": true
+}

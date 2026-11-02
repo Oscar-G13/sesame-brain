@@ -1,0 +1,71 @@
+{
+  "ok": true,
+  "checks": [
+    {
+      "path": "/.well-known/oauth-protected-resource",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "path": "/.well-known/oauth-protected-resource/mcp",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "path": "/.well-known/oauth-authorization-server",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "path": "/.well-known/openid-configuration",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "path": "/mcp",
+      "status": 401,
+      "challenge_exact": true,
+      "ok": true
+    },
+    {
+      "path": "/mcp",
+      "method": "OPTIONS",
+      "status": 204,
+      "ok": true
+    },
+    {
+      "path": "/.well-known/oauth-protected-resource",
+      "method": "OPTIONS",
+      "status": 204,
+      "ok": true
+    },
+    {
+      "path": "/register",
+      "method": "OPTIONS",
+      "status": 204,
+      "ok": true
+    },
+    {
+      "path": "/token",
+      "method": "OPTIONS",
+      "status": 204,
+      "ok": true
+    },
+    {
+      "path": "/revoke",
+      "method": "OPTIONS",
+      "status": 204,
+      "ok": true
+    },
+    {
+      "path": "/health",
+      "status": 200,
+      "ok": true
+    }
+  ],
+  "tls": {
+    "verified": true,
+    "not_after": "Jan 31 05:49:34 2027 GMT",
+    "issuer": "((('countryName', 'US'),), (('organizationName', \"Let's Encrypt\"),), (('commonName', 'YE1'),))"
+  }
+}

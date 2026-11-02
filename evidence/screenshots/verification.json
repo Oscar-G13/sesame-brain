@@ -1,0 +1,48 @@
+{
+  "pages": [
+    {
+      "page": "home",
+      "status": "pass",
+      "viewport": "390x844",
+      "horizontal_overflow": false
+    },
+    {
+      "page": "docs",
+      "status": "pass",
+      "viewport": "390x844",
+      "horizontal_overflow": false
+    },
+    {
+      "page": "privacy",
+      "status": "pass",
+      "viewport": "390x844",
+      "horizontal_overflow": false
+    },
+    {
+      "page": "login",
+      "status": "pass",
+      "viewport": "390x844",
+      "horizontal_overflow": false
+    },
+    {
+      "page": "signup",
+      "status": "pass",
+      "viewport": "390x844",
+      "horizontal_overflow": false
+    },
+    {
+      "page": "account",
+      "status": "pass",
+      "viewport": "390x844",
+      "horizontal_overflow": false
+    },
+    {
+      "page": "consent",
+      "status": "pass",
+      "viewport": "390x844",
+      "horizontal_overflow": false
+    }
+  ],
+  "console_errors": [],
+  "disposable_account_deleted": true
+}

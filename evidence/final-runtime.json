@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "test_metadata_disabled": true,
+  "other_container_ids_compared": 67,
+  "runtime": {
+    "image": "sha256:79f67c115ec23460d92612dcc477a13a442762712f3790d7dbda27394345cbec",
+    "image_tag": "sesame-brain:c5f7ef7bde85",
+    "non_root": "node",
+    "read_only": true,
+    "memory_bytes": 805306368,
+    "nano_cpus": 2000000000,
+    "port_bindings": {
+      "3000/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "3360"
+        }
+      ]
+    }
+  },
+  "other_container_ids_changed_count": 1
+}

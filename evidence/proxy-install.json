@@ -1,0 +1,6 @@
+{
+  "ok": true,
+  "fragment": "/etc/caddy/sesame-brain.caddy",
+  "unchanged_other_fragments": 27,
+  "upstream": "127.0.0.1:3360"
+}

@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "backup": "brain-20261102-065444.sql.gz",
+  "sha256": "c9562537b3e9c745731064b1a9fd1dfef804189ea9bd26e42c5ecd62978aa7b8",
+  "restored_tables": 14,
+  "owner_restored": true,
+  "temporary_database_removed": true
+}
