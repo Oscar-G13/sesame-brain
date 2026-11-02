@@ -1,0 +1,16 @@
+{
+  "at": "2026-11-02T21:38:12.311448+00:00",
+  "production_revision": "86b4a2ea8962",
+  "registration": "DCR",
+  "passed": true,
+  "synthetic_e2e_accounts_before": 0,
+  "synthetic_e2e_accounts_after": 0,
+  "fixture_cleanup_verified": true,
+  "provider_calls": 0,
+  "tools": 28,
+  "export_format": 3,
+  "deletion_tables": 25,
+  "recovery_code_hashes_exported": false,
+  "native_iphone_test": "pending",
+  "backup_performed": false
+}
