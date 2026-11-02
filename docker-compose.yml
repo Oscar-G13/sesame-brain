@@ -31,6 +31,7 @@ services:
       options: {max-size: "20m", max-file: "5"}
   db:
     image: postgres:16-bookworm
+    command: ["postgres", "-c", "log_statement=none", "-c", "log_min_error_statement=panic", "-c", "log_parameter_max_length_on_error=0", "-c", "log_error_verbosity=terse"]
     environment:
       POSTGRES_USER: brain
       POSTGRES_DB: brain
