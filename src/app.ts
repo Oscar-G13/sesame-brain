@@ -13,7 +13,7 @@ app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', resolve('src/web/views'));
 app.use((req,res,next) => {
- res.set({ 'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY', 'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'", 'Permissions-Policy':'camera=(), microphone=(), geolocation=()' });
+ res.set({ 'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'DENY', 'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'", 'Permissions-Policy':'camera=(), microphone=(), geolocation=()' });
  if (config.production) res.set('Strict-Transport-Security','max-age=31536000');
  const start=Date.now();
  res.on('finish', () => { console.log(JSON.stringify({time:new Date().toISOString(),method:req.method,path:typeof req.route?.path==='string'?req.route.path:(req.path.startsWith('/.well-known/')?'discovery':'unmatched'),status:res.statusCode,duration_ms:Date.now()-start,...(req.path==='/token'?{grant_type:['authorization_code','refresh_token'].includes(req.body?.grant_type)?req.body.grant_type:'other'}:{})})); });
