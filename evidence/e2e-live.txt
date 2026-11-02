@@ -1,0 +1,28 @@
+ Container sesame-brain-testdb-1 Running 
+ Container sesame-brain-testdb-1 Waiting 
+ Container sesame-brain-testdb-1 Healthy 
+ Container sesame-brain-dev-run-359501e8a09a Creating 
+ Container sesame-brain-dev-run-359501e8a09a Created 
+
+> sesame-brain@1.0.0 e2e
+> tsx scripts/e2e-oauth.ts
+
+PASS 401 challenge → protected-resource metadata → authorization-server discovery
+BEGIN DCR live OAuth and shared-memory scenario
+PASS DCR OAuth discovery, registration, login, PKCE, consent and all 15 tools
+PASS DCR two-assistant notes, shared facts, snapshots, handoff lifecycle and activity
+PASS DCR refresh rotates; replay revokes the complete token family
+PASS account deletion cascades across all 12 user-owned tables
+PASS DCR complete JSON export, two-step deletion, and revoked assistant access
+BEGIN CIMD live OAuth and shared-memory scenario
+PASS CIMD OAuth discovery, registration, login, PKCE, consent and all 15 tools
+PASS CIMD two-assistant notes, shared facts, snapshots, handoff lifecycle and activity
+PASS CIMD refresh rotates; replay revokes the complete token family
+PASS account deletion cascades across all 12 user-owned tables
+PASS CIMD complete JSON export, two-step deletion, and revoked assistant access
+PASS ALL live OAuth/MCP verification scenarios
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
