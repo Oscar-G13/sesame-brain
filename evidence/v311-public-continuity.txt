@@ -1,0 +1,8 @@
+PASS failed first tool call records no delivery; successful explicit resume records exactly one
+PASS same voice and same grant reconnect recover unchanged saved work without a project ID
+PASS first touch includes the authorized saved overnight diff as a labeled review
+PASS explicit resume restores saved context within an active session
+PASS latest owner-confirmed correction takes precedence over prior call context
+PASS same-grant refresh and idle gap retain continuity
+PASS memory-only fixture deleted with zero provider usage
+{"event":"continuity_verification_receipt","at":"2026-11-02T22:59:21.170Z","scenario":"same assistant across calls","native_app_verified":false,"provider_calls":0,"backup_performed":false,"checks":["failed first tool call records no delivery; successful explicit resume records exactly one","same voice and same grant reconnect recover unchanged saved work without a project ID","first touch includes the authorized saved overnight diff as a labeled review","explicit resume restores saved context within an active session","latest owner-confirmed correction takes precedence over prior call context","same-grant refresh and idle gap retain continuity","memory-only fixture deleted with zero provider usage"],"server_version":"3.1.1","passed":true,"fixture_cleanup_verified":true}
