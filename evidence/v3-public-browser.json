@@ -1,0 +1,78 @@
+{
+  "target": "https://brain.arxsable.ai",
+  "version": "3.0.0",
+  "synthetic_data_only": true,
+  "owner_data_accessed": false,
+  "account_created": true,
+  "operator_approved": false,
+  "account_deleted": true,
+  "think_form_posts": 0,
+  "model_usage": [],
+  "total_verified_think_posts": 1,
+  "versioned_assets": [
+    {
+      "path": "/assets/style.css",
+      "version": "3.0.0",
+      "status": 200
+    },
+    {
+      "path": "/assets/app.js",
+      "version": "3.0.0",
+      "status": 200
+    }
+  ],
+  "paid_call_intent_limit": 0,
+  "prior_think_verification": {
+    "receipt": "evidence/v3-public-browser-first-attempt.json",
+    "form_posts": 1,
+    "model_usage": [
+      {
+        "model": "claude-sonnet-5-5",
+        "input_tokens": 3482,
+        "output_tokens": 14
+      }
+    ],
+    "account_deleted": true,
+    "operator_cleanup_verified": true
+  },
+  "checks": [
+    "Public signup defaults to v3 dashboard with pending hosted AI approval",
+    "Stylesheet and script URLs request and load version 3.0.0 to bypass the previous asset cache",
+    "Previously completed actual public Think proof retained; this retry makes zero provider requests",
+    "Project creation, owner approval, dependent constraint correction and review propagation work through public forms",
+    "Mobile navigation, minimum 12px project metadata and desktop/mobile overflow checks passed",
+    "Export contains the synthetic project, its two items and versioned events"
+  ],
+  "captures": [
+    {
+      "name": "onboarding-desktop",
+      "width": 1440
+    },
+    {
+      "name": "onboarding-mobile",
+      "width": 390
+    },
+    {
+      "name": "project-approved-desktop",
+      "width": 1440
+    },
+    {
+      "name": "project-correction-desktop",
+      "width": 1440
+    },
+    {
+      "name": "project-correction-mobile",
+      "width": 390
+    },
+    {
+      "name": "populated-home-mobile",
+      "width": 390
+    }
+  ],
+  "browser_errors": [],
+  "server_errors": [],
+  "operator_cleanup_verified": true,
+  "total_synthetic_accounts_created": 2,
+  "total_synthetic_accounts_deleted": 2,
+  "total_intended_paid_requests": 1
+}

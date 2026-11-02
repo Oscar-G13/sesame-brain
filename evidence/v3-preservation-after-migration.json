@@ -1,0 +1,88 @@
+{
+  "at": "2026-11-02T21:36:33.863Z",
+  "backups_created": false,
+  "method": "Original-column per-row fingerprints; baseline rows must remain unchanged. New rows allowed. Brain memory_version excluded.",
+  "tables": {
+    "users": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "brains": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "sessions": {
+      "before": 2,
+      "after": 2,
+      "missing_or_changed": 0
+    },
+    "grants": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "access_tokens": {
+      "before": 4,
+      "after": 4,
+      "missing_or_changed": 0
+    },
+    "refresh_tokens": {
+      "before": 4,
+      "after": 4,
+      "missing_or_changed": 0
+    },
+    "notes": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "handoffs": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "facts": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "snapshots": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "activity": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "brain_sessions": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "jobs": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "usage": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "usage_reservations": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "nightly_runs": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    }
+  },
+  "passed": true
+}

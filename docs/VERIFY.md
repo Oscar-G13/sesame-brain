@@ -1,13 +1,30 @@
-# V3 Living Projects acceptance
+# Brain verification
 
-All builds, runtime and tests execute on hermes in `/srv/sesame-brain`. The historical v2 results below do not certify v3. Synthetic fixtures preserve owner content. Backups and restore drills are deferred by the owner.
+## V3 Living Projects — live November 2, 2026
 
-- Final full regression suite: 145/145 passed, zero skipped; strict TypeScript check passed. Receipt: evidence/v3-tests.json.
-- Browser: populated outcome dashboard and project graph, all six types, desktop and iPhone widths, authenticated Think POST, complete job-result rendering.
-- Real Anthropic project acceptance passed; see evidence/v3-live-models.json. Public OAuth/MCP acceptance is recorded separately after deployment.
-- Native Sesame: pending user verification in the official Sesame Inc. iPhone app. Protocol/provider/browser tests do not substitute for this gate.
+Production revision 86b4a2ea8962, version 3.0.0, is live at https://brain.arxsable.ai. App, database and sandbox are healthy. All runtime/development work ran on hermes in /srv/sesame-brain.
 
-# Brain v2 verification
+| Check | Result |
+| --- | --- |
+| Regression and CI | 147/147 passed, zero skips; strict TypeScript passed. Final asset change passed 12 focused browser-route tests. [Release CI](https://github.com/Oscar-G13/sesame-brain/actions/runs/41529794738) passed. |
+| Real provider | Isolated project correction/approval/artifact scenario passed. Public authenticated Think used the real quick model and recorded a real Brain session. |
+| Public OAuth/MCP | DCR, PKCE, consent, 28 tools, Maya/Charlie project continuity/history/receipts, pending-AI refusal, refresh reuse, format 3 export and 25-table account cleanup passed. |
+| Browser | Isolated dense 16-item, 21-edge project and public desktop/mobile workflows passed. Versioned CSS/JS loaded; no overflow, browser errors or server errors in successful checks. |
+| Preservation | Original-column fingerprints across 16 tables passed immediately after migration and after public fixture cleanup, including account, password/session/token rows and saved content. Hashes only; no backup was created. |
+| Infrastructure | Same three persistent Brain services; loopback 3360 and existing Caddy hashes unchanged. Three unrelated workload container IDs changed independently during the observation window; no commands targeted those workloads. |
+| Operations | Database, provider, sandbox, jobs and scheduler ready. Host disk 86% used (about 123 GB free) raises a visible storage warning and keeps overall /ready degraded. No shared cleanup was performed. |
+| Backups | Explicitly deferred by the owner; no new archives, uploads or restore drills. Future design is in DEFERRED-BACKUPS.md. |
+| Native Sesame iPhone | Pending user verification in Sesame Inc.'s official iPhone app. No native success or transcript synchronization is claimed. |
+
+Evidence: evidence/v3-tests.json, v3-live-models.json, v3-public-oauth.json, v3-public-browser.json, v3-preservation-after-migration.json, v3-preservation.json and v3-deployment.json. Dense browser evidence is under evidence/living-projects-browser/.
+
+Two public verifier mistakes were corrected without changing the deployed runtime: recovery hashes were wrongly expected in export (they are intentionally omitted), and a test closed an already-open correction disclosure. The successful public browser receipt retains the real Think proof from its first synthetic account and the project/mobile proof from a second memory-only account. Both accounts were independently confirmed deleted.
+
+Native acceptance: connect Maya and Charlie to the same Brain account with matching assistant labels. Ask Maya to create Weekend Escape with a $600 budget, then ask Charlie to retrieve the project and its budget. Record the actual app outcome separately from protocol tests.
+
+The v2 results below are historical and do not certify v3.
+
+## Historical v2 verification
 
 Verification date: November 2, 2026 (America/Los_Angeles). Runtime and tests execute on hermes in /srv/sesame-brain. The production owner account is never used as a test fixture. Phase 1–3 model timings below are real-provider tests against an isolated test instance; public production acceptance is recorded separately.
 

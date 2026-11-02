@@ -1,15 +1,23 @@
 {
-  "at": "2026-11-02T21:28:01.407400+00:00",
+  "at": "2026-11-02T21:41:58.019633+00:00",
   "host": "hermes",
   "directory": "/srv/sesame-brain",
   "database": "isolated brain_test",
   "typecheck": "passed",
-  "tests": 145,
-  "passed": 145,
+  "tests": 147,
+  "passed": 147,
   "failed": 0,
   "skipped": 0,
   "routine_provider": "injected; no paid calls",
   "real_provider_receipt": "v3-live-models.json",
   "native_iphone": "pending user verification",
-  "backups": "deferred; none created"
+  "backups": "deferred; none created",
+  "core_tested_revision": "74e461b002b1e11550afcb4da4fefee7bb9b9455",
+  "release_revision": "86b4a2ea89625e7f26d2a47e20d24606c7c186c5",
+  "final_asset_regressions": {
+    "passed": 12,
+    "failed": 0
+  },
+  "core_ci": "https://github.com/Oscar-G13/sesame-brain/actions/runs/41529462759",
+  "release_ci": "https://github.com/Oscar-G13/sesame-brain/actions/runs/41529794738"
 }

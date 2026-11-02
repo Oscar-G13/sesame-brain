@@ -1,0 +1,99 @@
+{
+  "at": "2026-11-02T21:40:55.511465+00:00",
+  "revision": "86b4a2ea89625e7f26d2a47e20d24606c7c186c5",
+  "version": "3.0.0",
+  "services": [
+    {
+      "name": "sesame-brain-app-1",
+      "image": "sesame-brain:86b4a2ea8962",
+      "digest": "sha256:bb2da841cfa0b08c588ac5a67f452975bdf1303b78e877c429f458148f159f6a",
+      "state": "running",
+      "health": "healthy",
+      "started_at": "2026-11-02T21:36:11.857858256Z",
+      "ports": {
+        "3000/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "3360"
+          }
+        ]
+      },
+      "read_only_root": true,
+      "user": "node"
+    },
+    {
+      "name": "sesame-brain-db-1",
+      "image": "postgres:16-bookworm",
+      "digest": "sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938",
+      "state": "running",
+      "health": "healthy",
+      "started_at": "2026-11-02T07:00:56.551792301Z",
+      "ports": {},
+      "read_only_root": false,
+      "user": ""
+    },
+    {
+      "name": "sesame-brain-sandbox-1",
+      "image": "sesame-brain-sandbox:86b4a2ea8962",
+      "digest": "sha256:446ace2f33a85b016e2c4fce1ff24a2686a943c933dc137f7649e2159d40eb48",
+      "state": "running",
+      "health": "healthy",
+      "started_at": "2026-11-02T21:36:11.35484046Z",
+      "ports": {},
+      "read_only_root": true,
+      "user": "node"
+    }
+  ],
+  "public_health": {
+    "ok": true,
+    "db": "ok",
+    "version": "3.0.0",
+    "uptime": 283
+  },
+  "readiness": {
+    "ok": false,
+    "db": true,
+    "provider": {
+      "configured": true,
+      "ok": true
+    },
+    "sandbox": {
+      "configured": true,
+      "ok": true
+    },
+    "jobs": {
+      "ok": true
+    },
+    "storage": {
+      "ok": false
+    },
+    "nightly": {
+      "ok": true
+    },
+    "backup": {
+      "configured": false,
+      "deferred": true,
+      "ok": true
+    },
+    "restore": {
+      "configured": false,
+      "deferred": true,
+      "ok": true
+    },
+    "checked_at": "2026-11-02T21:40:55.504Z",
+    "issues": [
+      "Host storage is above the warning threshold. The operator should inspect capacity."
+    ]
+  },
+  "unrelated_container_ids_changed_during_observation": [
+    "arx-scanner-api",
+    "arx-scanner-worker",
+    "arx-scanner-web"
+  ],
+  "unrelated_changes_note": "Deployment commands addressed only Compose project sesame-brain; these other workload changes were observed during the window and were not performed by this task.",
+  "caddy_unchanged": true,
+  "new_backups_created": false,
+  "native_sesame_iphone": "pending user verification",
+  "core_ci": "https://github.com/Oscar-G13/sesame-brain/actions/runs/41529462759",
+  "release_ci": "https://github.com/Oscar-G13/sesame-brain/actions/runs/41529794738"
+}

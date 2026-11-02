@@ -1,0 +1,63 @@
+{
+  "target": "https://brain.arxsable.ai",
+  "version": "3.0.0",
+  "synthetic_data_only": true,
+  "owner_data_accessed": false,
+  "account_created": true,
+  "operator_approved": true,
+  "account_deleted": true,
+  "think_form_posts": 1,
+  "model_usage": [
+    {
+      "model": "claude-sonnet-5-5",
+      "input_tokens": 3482,
+      "output_tokens": 14
+    }
+  ],
+  "versioned_assets": [
+    {
+      "path": "/assets/app.js",
+      "version": "3.0.0",
+      "status": 200
+    },
+    {
+      "path": "/assets/style.css",
+      "version": "3.0.0",
+      "status": 200
+    }
+  ],
+  "paid_call_intent_limit": 1,
+  "checks": [
+    "Public signup defaults to v3 dashboard with pending hosted AI approval",
+    "Stylesheet and script URLs request and load version 3.0.0 to bypass the previous asset cache",
+    "Actual deployed authenticated Think POST returned a provider answer with one submitted request",
+    "Think created a real Brain session and recorded model usage without a background job"
+  ],
+  "captures": [
+    {
+      "name": "onboarding-desktop",
+      "width": 1440
+    },
+    {
+      "name": "onboarding-mobile",
+      "width": 390
+    },
+    {
+      "name": "real-think-desktop",
+      "width": 1440
+    },
+    {
+      "name": "real-think-mobile",
+      "width": 390
+    },
+    {
+      "name": "project-approved-desktop",
+      "width": 1440
+    }
+  ],
+  "browser_errors": [],
+  "server_errors": [],
+  "verification_error": "locator.click: Timeout 20000ms exceeded.\nCall log:\n  - waiting for locator('#project-item-581457ef-1813-4821-bd20-db5bc8ba75ea').getByRole('button', { name: 'Approve this item', exact: true })\n",
+  "operator_cleanup_verified": true,
+  "verifier_issue": "After direct correction, the page opens the review disclosure automatically; the verifier clicked it closed before looking for the approval button."
+}

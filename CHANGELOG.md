@@ -1,3 +1,5 @@
+# Changelog
+
 ## 3.0.0 — Living Projects
 
 - Versioned cross-assistant projects with sources, reviewable corrections, dependency review and retrieval receipts.
@@ -6,7 +8,6 @@
 - Hosted-AI approval, one-time recovery, content quotas, fair workers and subsystem readiness.
 - Backup work deferred by the owner; existing archives preserved and future recovery documented.
 
-# Changelog
 
 ## 2.0.0 — 2026-11-02
 

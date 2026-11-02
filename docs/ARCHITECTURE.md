@@ -1,4 +1,6 @@
-# V3 architecture additions
+# Brain architecture
+
+## V3 architecture additions
 
 Migrations 0005–0010 add fact evidence/history, explicit source audiences, sponsored-AI approval and recovery codes, versioned projects, staged proposals and incremental content quotas. Existing credentials and content remain. Legacy generated artifacts without reliable provenance become owner-visible only, retaining their original bytes.
 
@@ -6,7 +8,7 @@ Project dependency edges point from dependent work to prerequisites. Assistant e
 
 Context and search filter evidence before retrieval. Sessions inherit audiences of delivered evidence, including briefings, so subsequent memory writes cannot broaden a private read. Jobs carry initial audience and source provenance; completion rechecks authority, epoch and source permissions. Two workers share the service, at most one per account, preferring the account least recently served. Interrupted running jobs fail explicitly on restart; queued jobs survive. This release does not claim checkpoint resume.
 
-Provider budget reservations require account approval. Recovery codes are single-use hashes; recovery revokes old logins/grants and stops queued work. Database triggers bound content growth at 25 MiB / 10,000 logical rows per brain by default; deletions, shrinking and bookkeeping remain possible at quota. Session/usage/activity metadata is rate limited but excluded from that content quota. Export format3 includes all five project collections, fact revisions and AI access history.
+Provider budget reservations require account approval. Recovery codes are single-use hashes; recovery revokes old logins/grants and stops queued work. Database triggers bound content growth at 25 MiB / 10,000 logical rows per brain by default; deletions, shrinking and bookkeeping remain possible at quota. Session/usage/activity metadata is rate limited but excluded from that content quota. Export format 3 includes all five project collections, fact revisions and AI access history.
 
 `/ready` reports sanitized provider, sandbox, workers, nightly and disk status. `/health` retains database-only restart semantics. Backups and restore are explicitly deferred.
 
@@ -14,7 +16,7 @@ V3 migrations introduce privacy semantics that v2 code does not enforce. Build a
 
 The original implementation background follows; version-specific release results belong in VERIFY.md.
 
-# Brain architecture
+## Implementation background
 
 This is an independent Arx Sable product on the shared Helsinki host **hermes**. Its authoritative checkout, development tools, tests, builds and runtime live at `/srv/sesame-brain`; the Mac supplies SSH and account access, and is not an application dependency.
 
@@ -108,4 +110,4 @@ The targeted nightly suite is `npx tsx --test test/nightly.test.ts` inside the d
 
 ## Production release
 
-Brain 2.0.0 core acceptance passed at 8596c89dd415; final presentation-copy revision df719d6f2e64 was deployed afterward with app, database, and sandbox healthy. The persistent workspaces volume is mounted at /var/lib/brain/workspaces; a separate named volume carries the isolated sandbox Unix socket. Browser call sessions remain tied to a live browser authentication session. Export omits internal session keys, transport identifiers, hashes, and lease identifiers. See [VERIFY.md](VERIFY.md) for CI, public OAuth/browser, restart, preservation, and final deployment receipts.
+Brain 3.0.0 is deployed at revision 86b4a2ea8962. App, database and sandbox are healthy; hosted AI, jobs and scheduler checks pass. Overall readiness is degraded only by the shared-host storage warning (86% used). Caddy routes and loopback 3360 are unchanged. See VERIFY.md for CI, public OAuth/browser, source preservation and cleanup receipts. Native Sesame iPhone acceptance remains pending the user's test. Backups remain deferred.
