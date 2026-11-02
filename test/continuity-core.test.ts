@@ -5,7 +5,7 @@ import {pool} from '../src/db/index.js';
 import {config} from '../src/config.js';
 import {executeTool,type AuthContext} from '../src/tools/service.js';
 import {touchSession,recordSessionActivity,rollupSession} from '../src/brain/sessions.js';
-import {buildContinuity,bookmarkProject} from '../src/brain/continuity.js';
+import {buildContinuity,bookmarkProject,recordContinuityReceipt} from '../src/brain/continuity.js';
 import {setModelTransportForTests} from '../src/brain/provider.js';
 const users:string[]=[],client='continuity-core-'+randomUUID();let providerCalls=0;
 before(async()=>{setModelTransportForTests(async()=>{providerCalls++;throw new Error('Continuity must not call an AI provider.');});await pool.query("INSERT INTO oauth_clients(client_id,kind,metadata) VALUES($1,'dcr','{}')",[client]);});
@@ -34,7 +34,7 @@ test('same voice resumes unchanged canonical project and its own snapshot after 
  const packet=next.continuity!;assert.equal(packet.project?.id,focus.id);assert.equal(packet.project?.confirmed_constraints[0].content,'The budget is 1200 euros.');assert.equal(packet.project?.confirmed_decisions[0].content,'Use the train.');
  assert.equal(packet.project?.open_questions[0].title,'Which departure works?');assert.equal(packet.project?.unfinished_tasks[0].title,'Book tickets');
  assert.ok(packet.source_refs.some(ref=>ref.collection==='snapshots'&&ref.id===snapshot.id));assert.match(packet.previous_session?.summary??'',/SAME-VOICE-SNAPSHOT/);
- assert.ok(packet.facts.some(row=>row.value==='Prefer a window seat.'));assert.ok(packet.resume_count!>=1);assert.equal(providerCalls,0);
+ assert.ok(packet.facts.some(row=>row.value==='Prefer a window seat.'));assert.equal(packet.resume_count,undefined);await recordContinuityReceipt(a,next.session.id,packet);assert.ok(packet.resume_count!>=1);assert.equal(providerCalls,0);
 });
 test('canonical corrections and pending-review flags take precedence over an unchanged previous session summary',async()=>{
  const a=await fixture(),first=await touchSession(a),focus=await project(a);await bookmarkProject(a,first.session.id,focus.id);
@@ -51,7 +51,7 @@ test('read-only pending accounts retrieve saved context and empty retrievals do 
  await executeTool(a,'remember',{key:'remembered route',value:'Take the coastal train.'});
  const read={...a,scopes:['brain:read'],token_hash:'refreshed-read-token'},next=await touchSession(read);
  assert.equal(next.continuity?.saved_context,true);assert.ok(next.continuity!.facts.some(row=>row.value==='Take the coastal train.'));
- assert.equal(Number(next.continuity!.resume_count),1);assert.equal(providerCalls,0);
+ assert.equal(next.continuity!.resume_count,undefined);await recordContinuityReceipt(read,next.session.id,next.continuity!);assert.equal(Number(next.continuity!.resume_count),1);assert.equal(providerCalls,0);
  assert.equal((await pool.query('SELECT 1 FROM snapshots WHERE user_id=$1 AND brain_id=$2',tenant(a))).rowCount,0);
 });
 test('capped session receipts cannot expose withdrawn event provenance during saved-tool fallback',async()=>{
@@ -152,4 +152,57 @@ test('think-only saved conversation resumes within the same open session without
  assert.equal(packet.current_session?.summary_source,'saved_tool_activity');assert.match(packet.current_session!.summary,/coastal route/);
  assert.match(packet.briefing,/Recent saved conversation context/);assert.ok(!packet.briefing.includes('previous call'));assert.ok(packet.source_refs.some(ref=>ref.collection==='brain_sessions'&&ref.id===first.session.id));
  assert.equal(providerCalls,0);
+});
+async function nightlyDiff(a:AuthContext,summary:string,options:{visibility?:string;audience?:string[];refs?:any[];createdAt?:Date}={}){
+ return(await pool.query("INSERT INTO snapshots(user_id,brain_id,agent_label,title,kind,content,visibility,to_agents,source_refs,created_at) VALUES($1,$2,'brain-nightly','Overnight change','diff',$3,$4,$5,$6,$7) RETURNING id",[...tenant(a),JSON.stringify({schema:'brain_formulation_diff',schema_version:'1.0',generated_at:'2026-11-03T11:00:00.000Z',spoken_summary:summary}),options.visibility??'shared',options.audience??['all'],JSON.stringify(options.refs??[]),options.createdAt??new Date()])).rows[0].id as string;
+}
+test('nightly diff alone appears in first-touch briefing and explicit resume as generated interpretation with a receipt',async()=>{
+ const a=await fixture(),summary=Array.from({length:100},(_,i)=>i===0?'OVERNIGHT-INTERPRETATION':'word'+i).join(' '),id=await nightlyDiff(a,summary);
+ const first=await touchSession(a);
+ assert.equal(first.continuity?.nightly_update?.id,id);assert.equal(first.continuity!.nightly_update!.summary.split(/\s+/).length,100);
+ assert.match(first.briefing??'',/Latest overnight interpretation/);assert.match(first.briefing??'',/confirmed facts take precedence/);
+ assert.equal(first.continuity?.saved_snapshot,undefined);assert.ok(first.continuity!.source_refs.some(ref=>ref.collection==='snapshots'&&ref.id===id));
+ const resumed=await buildContinuity(a,{sessionId:first.session.id,recordReceipt:false});
+ assert.equal(resumed.nightly_update?.id,id);assert.match(resumed.briefing,/2026-11-03/);assert.ok(resumed.bytes<=16000);assert.equal(resumed.bytes,Buffer.byteLength(JSON.stringify(resumed)));
+ const unicodeSummary=Array.from({length:100},(_,i)=>('🧠"'.repeat(5))+i).join(' ');
+ await pool.query('UPDATE snapshots SET content=$2 WHERE id=$1',[id,JSON.stringify({schema:'brain_formulation_diff',schema_version:'1.0',generated_at:'2026-11-03T11:00:00.000Z',spoken_summary:unicodeSummary})]);
+ for(const maxBytes of [2048,16000]){
+  const bounded=await buildContinuity(a,{sessionId:first.session.id,recordReceipt:false,maxBytes});
+  assert.ok(bounded.bytes<=maxBytes);assert.equal(bounded.bytes,Buffer.byteLength(JSON.stringify(bounded)));assert.ok(!JSON.stringify(bounded).includes('\uFFFD'));
+ }
+ assert.equal(providerCalls,0);
+});
+test('private, foreign and withdrawn-source nightly interpretations stay out of continuity and briefings',async()=>{
+ const a=await fixture(),b=await fixture(),source=await executeTool(a,'leave_note',{to:'all',text:'Withdraw this nightly evidence.'}) as any;
+ await nightlyDiff(a,'WITHDRAWN-NIGHTLY-SECRET',{refs:[{collection:'notes',id:source.id}]});
+ await pool.query("UPDATE notes SET visibility='owner_only',source_audience='{you}' WHERE id=$1",[source.id]);
+ await nightlyDiff(a,'OWNER-NIGHTLY-SECRET',{visibility:'owner_only',audience:['you']});
+ await nightlyDiff(b,'FOREIGN-NIGHTLY-SECRET');
+ const packet=await buildContinuity(a,{recordReceipt:false});
+ assert.equal(packet.nightly_update,undefined);assert.ok(!JSON.stringify(packet).includes('NIGHTLY-SECRET'));assert.equal(packet.saved_context,false);
+ const spoof=await buildContinuity({...a,agent_label:'you'},{recordReceipt:false}).catch(()=>undefined);
+ assert.ok(!spoof||!JSON.stringify(spoof).includes('OWNER-NIGHTLY-SECRET'));assert.equal(providerCalls,0);
+});
+test('preparing context creates no receipt; successful final delivery can stamp a closed same-epoch session',async()=>{
+ const a=await fixture();await executeTool(a,'remember',{key:'delivery proof',value:'Saved only once delivery succeeds.'});
+ const call=await touchSession(a,{skipContinuity:true}),packet=await buildContinuity(a,{sessionId:call.session.id,recordReceipt:false,maxBytes:2048});
+ assert.equal(Number((await pool.query('SELECT resume_count FROM brain_sessions WHERE id=$1',[call.session.id])).rows[0].resume_count),0);
+ await assert.rejects(executeTool(a,'get_snapshot',{id:randomUUID()}),/not found/);
+ assert.equal(Number((await pool.query('SELECT resume_count FROM brain_sessions WHERE id=$1',[call.session.id])).rows[0].resume_count),0);
+ await rollupSession(a,call.session.id,{closeOnUnavailable:true});
+ const delivered=await recordContinuityReceipt(a,call.session.id,packet);
+ assert.equal(delivered,packet);assert.equal(delivered.resume_count,1);assert.ok(delivered.resumed_at);assert.ok(delivered.bytes<=2048);assert.equal(delivered.bytes,Buffer.byteLength(JSON.stringify(delivered)));
+});
+test('final continuity receipt rejects nested provenance withdrawn after packet preparation without counting retrieval',async()=>{
+ const a=await fixture(),evidence=await executeTool(a,'leave_note',{to:'all',text:'Nested evidence for a generated interpretation.'}) as any;
+ await nightlyDiff(a,'INTERPRETATION-TO-WITHDRAW',{refs:[{collection:'notes',id:evidence.id}]});
+ const call=await touchSession(a,{skipContinuity:true}),packet=await buildContinuity(a,{sessionId:call.session.id,recordReceipt:false});assert.ok(packet.nightly_update);
+ await pool.query("UPDATE notes SET visibility='owner_only',source_audience='{you}' WHERE id=$1",[evidence.id]);
+ await assert.rejects(recordContinuityReceipt(a,call.session.id,packet),/no longer available/);
+ assert.equal(Number((await pool.query('SELECT resume_count FROM brain_sessions WHERE id=$1',[call.session.id])).rows[0].resume_count),0);
+});
+test('an empty final packet does not produce a saved-context receipt',async()=>{
+ const a=await fixture(),call=await touchSession(a,{skipContinuity:true}),packet=await buildContinuity(a,{sessionId:call.session.id,recordReceipt:false});
+ assert.equal(packet.saved_context,false);await recordContinuityReceipt(a,call.session.id,packet);
+ assert.equal(Number((await pool.query('SELECT resume_count FROM brain_sessions WHERE id=$1',[call.session.id])).rows[0].resume_count),0);
 });

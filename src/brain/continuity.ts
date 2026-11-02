@@ -9,8 +9,9 @@ export interface ContinuityProject{id:string;title:string;goal:string;version:nu
 export interface ContinuityPacket{
  briefing:string;project?:ContinuityProject;current_session?:{id:string;last_activity_at:string;summary:string;summary_source:'saved_tool_activity'};previous_session?:{id:string;last_activity_at:string;snapshot_id?:string;summary:string;summary_source:'auto_snapshot'|'manual_snapshot'|'saved_tool_activity'};
  recent_notes:Record<string,unknown>[];saved_snapshot?:{id:string;title:string;kind:string;agent_label:string;created_at:string;content:string};facts:Record<string,unknown>[];open_work:Record<string,unknown>[];waiting_results:Record<string,unknown>[];
- source_refs:SourceRef[];source_audience:string[];saved_context:boolean;bytes:number;truncated:boolean;resume_count?:number;resumed_at?:string;
+ nightly_update?:{id:string;created_at:string;generated_at?:string;kind:'diff';summary:string};source_refs:SourceRef[];source_audience:string[];saved_context:boolean;bytes:number;truncated:boolean;resume_count?:number;resumed_at?:string;
 }
+const packetBudgets=new WeakMap<ContinuityPacket,number>();
 const stamp=(value:unknown)=>value instanceof Date?value.toISOString():String(value??'');
 const clip=(value:unknown,n:number)=>Array.from(String(value??'')).slice(0,n).join('');
 function utf8(text:string,bytes:number){const source=Buffer.from(text);return source.length<=bytes?text:source.subarray(0,Math.max(0,bytes)).toString('utf8').replace(/\uFFFD+$/u,'');}
@@ -45,6 +46,44 @@ async function authorizedBrain(db:pg.PoolClient,a:AuthContext){
  if(a.expected_content_epoch!==undefined&&a.expected_content_epoch!==Number(brain.content_epoch))throw new ToolError('Brain reset; work stopped.',409);
  await checkBrainAuthority(a,Number(brain.content_epoch),false,db);return brain;
 }
+function boundPacket(packet:ContinuityPacket,maxBytes:number):ContinuityPacket{
+ for(;;){
+  packet.bytes=Buffer.byteLength(JSON.stringify(packet));const actual=Buffer.byteLength(JSON.stringify(packet));
+  if(actual<=maxBytes){packet.bytes=actual;if(Buffer.byteLength(JSON.stringify(packet))===actual)return packet;continue;}
+  if(!packet.briefing)throw new ToolError('The saved context cannot fit this response budget.');
+  packet.briefing=utf8(packet.briefing,Math.max(0,Buffer.byteLength(packet.briefing)-128));packet.truncated=true;
+ }
+}
+async function packetSourcesAvailable(db:pg.PoolClient,a:AuthContext,packet:ContinuityPacket):Promise<boolean>{
+ const returnedItems=packet.project?Object.values(packet.project).flatMap(value=>Array.isArray(value)?value:[]):[];
+ for(const ref of packet.source_refs){
+  // A withheld proposal must not invalidate the separately returned current confirmed value.
+  const withheld=ref.collection==='project_items'&&returnedItems.some((item:ContinuityItem)=>item.id===ref.id&&item.pending_change_withheld&&!item.pending_change);
+  if(withheld){
+   try{await validateSourceRefs(db,a,[ref]);}catch(error){if(error instanceof MemoryError)return false;throw error;}
+   const item=(await db.query('SELECT source_refs FROM project_items WHERE user_id=$1 AND brain_id=$2 AND id=$3',[a.user_id,a.brain_id,ref.id])).rows[0];
+   if(!item||!await sourcesAvailable(db,a,item.source_refs??[]))return false;
+  }else if(!await sourcesAvailable(db,a,[ref]))return false;
+ }
+ return true;
+}
+async function writeReceipt(db:pg.PoolClient,a:AuthContext,sessionId:string,packet:ContinuityPacket,epoch:string|number):Promise<ContinuityPacket>{
+ if(!packet.saved_context||!packet.source_refs.length)return packet;
+ const current=(await db.query('SELECT id,to_agents,source_refs FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND id=$3 AND agent_label=$4 AND content_epoch=$5',[a.user_id,a.brain_id,sessionId,a.agent_label,epoch])).rows[0];
+ if(!current)throw new ToolError('This session is no longer available.',409);
+ if(!await packetSourcesAvailable(db,a,packet))throw new ToolError('Some saved context is no longer available. Resume again.',409);
+ const evidence=await validateSourceRefs(db,a,packet.source_refs);
+ packet.source_audience=intersectAudiences(packet.source_audience,evidence.audience,current.to_agents);
+ const refs=[...new Map([...(current.source_refs??[]),...packet.source_refs].map((ref:SourceRef)=>[ref.collection+':'+ref.id,ref])).values()].slice(-40);
+ const saved=(await db.query('UPDATE brain_sessions SET resume_count=resume_count+1,resumed_at=now(),last_project_id=COALESCE($5,last_project_id),to_agents=$6,source_refs=$7 WHERE user_id=$1 AND brain_id=$2 AND id=$3 AND agent_label=$4 RETURNING resume_count,resumed_at',[a.user_id,a.brain_id,sessionId,a.agent_label,packet.project?.id??null,packet.source_audience,JSON.stringify(refs)])).rows[0];
+ packet.resume_count=Number(saved.resume_count);packet.resumed_at=stamp(saved.resumed_at);
+ return boundPacket(packet,packetBudgets.get(packet)??16000);
+}
+/** Final successful-delivery receipt, separate from preparing a continuity packet. */
+export async function recordContinuityReceipt(a:AuthContext,sessionId:string,packet:ContinuityPacket):Promise<ContinuityPacket>{
+ uuid(sessionId);
+ return transaction(async db=>{const brain=await authorizedBrain(db,a);return writeReceipt(db,a,sessionId,packet,brain.content_epoch);});
+}
 export async function bookmarkProject(a:AuthContext,sessionId:string,projectId:string):Promise<void>{
  uuid(sessionId);uuid(projectId);
  await transaction(async db=>{
@@ -77,6 +116,7 @@ export async function buildContinuity(a:AuthContext,options:ContinuityOptions={}
    if(rows.length===1)selected=rows[0];
   }
   const packet:ContinuityPacket={briefing:'',recent_notes:[],facts:[],open_work:[],waiting_results:[],source_refs:[],source_audience:intersectAudiences(a.source_audience),saved_context:false,bytes:0,truncated:false};
+  packetBudgets.set(packet,maxBytes);
   const include=(mutate:()=>void,undo:()=>void,refs:SourceRef[],audience:string[])=>{
    const oldRefs=packet.source_refs,oldAudience=packet.source_audience,nextRefs=[...new Map([...packet.source_refs,...refs].map(ref=>[ref.collection+':'+ref.id,ref])).values()];
    if(nextRefs.length>40){packet.truncated=true;return false;}
@@ -172,6 +212,15 @@ export async function buildContinuity(a:AuthContext,options:ContinuityOptions={}
     include(()=>{packet.saved_snapshot=value;},()=>{delete packet.saved_snapshot;},[{collection:'snapshots',id:row.id}],audience);break;
    }
   }
+  const dp:unknown[]=[...tenant],dv=memoryAccessSql('snapshots','d',a,dp);
+  const updates=(await db.query("SELECT d.id,d.created_at,d.content,d.visibility,d.to_agents,d.source_refs FROM snapshots d WHERE d.user_id=$1 AND d.brain_id=$2 AND d.kind='diff' AND d.agent_label='brain-nightly' AND "+dv+' ORDER BY d.created_at DESC,d.id DESC LIMIT 5',dp)).rows;
+  for(const row of updates){
+   const audience=audienceOf(row);if(!suitable(audience,target,a)||!await sourcesAvailable(db,a,row.source_refs??[]))continue;
+   let diff:any;try{diff=JSON.parse(row.content);}catch{continue;}
+   if(diff.schema!=='brain_formulation_diff'||diff.schema_version!=='1.0'||typeof diff.spoken_summary!=='string'||!diff.spoken_summary.trim())continue;
+   const value={id:row.id,created_at:stamp(row.created_at),...(typeof diff.generated_at==='string'?{generated_at:diff.generated_at}:{}),kind:'diff' as const,summary:utf8(diff.spoken_summary.trim().split(/\s+/).slice(0,100).join(' '),Math.min(1600,Math.max(200,Math.floor(maxBytes/4))))};
+   include(()=>{packet.nightly_update=value;},()=>{delete packet.nightly_update;},[{collection:'snapshots',id:row.id}],audience);break;
+  }
   const spoken:string[]=[];
   if(packet.project){spoken.push('Your saved project is '+packet.project.title+'.');if(packet.project.goal)spoken.push('The current goal is '+clip(packet.project.goal,170)+'.');const constraint=packet.project.confirmed_constraints[0],decision=packet.project.confirmed_decisions[0],task=packet.project.unfinished_tasks[0],question=packet.project.open_questions[0];if(constraint)spoken.push('Confirmed constraint: '+clip(constraint.content||constraint.title,120)+'.');else if(packet.project.proposed_items[0]){const proposal=packet.project.proposed_items[0];spoken.push((proposal.confirmation==='disputed'?'Disputed saved item: ':'Previously recorded, not yet confirmed: ')+clip(proposal.content||proposal.title,120)+'.');}if(decision)spoken.push('Confirmed decision: '+clip(decision.content||decision.title,100)+'.');if(task)spoken.push('Next unfinished task: '+clip(task.title,100)+'.');if(question)spoken.push('Open question: '+clip(question.title,100)+'.');if(packet.project.review_flags.length)spoken.push(packet.project.review_flags.length+' saved items need review; proposed corrections are not confirmed.');}
   else if(packet.current_session)spoken.push('Recent saved conversation context: '+clip(packet.current_session.summary,260));
@@ -181,18 +230,12 @@ export async function buildContinuity(a:AuthContext,options:ContinuityOptions={}
   else if(packet.saved_snapshot)spoken.push('Saved snapshot: '+clip(packet.saved_snapshot.content,240));
   if(packet.waiting_results.length)spoken.push(packet.waiting_results.length+' completed results are ready: '+packet.waiting_results.map(row=>row.title).join(', ')+'.');
   if(!packet.project&&packet.open_work.length)spoken.push('Still open: '+packet.open_work.map(row=>row.title).join(', ')+'.');
-  packet.briefing=packet.saved_context?spoken.join(' ').split(/\s+/).slice(0,150).join(' '):'There is no saved context to resume yet. Save the goal and useful details as we go.';
-  if(current&&options.recordReceipt!==false&&packet.saved_context){
-   const refs=[...new Map([...(current.source_refs??[]),...packet.source_refs].map((ref:SourceRef)=>[ref.collection+':'+ref.id,ref])).values()].slice(-40),audience=intersectAudiences(current.to_agents,packet.source_audience);
-   const saved=(await db.query('UPDATE brain_sessions SET resume_count=resume_count+1,resumed_at=now(),last_project_id=COALESCE($5,last_project_id),to_agents=$6,source_refs=$7 WHERE user_id=$1 AND brain_id=$2 AND id=$3 AND agent_label=$4 RETURNING resume_count,resumed_at',[...tenant,current.id,a.agent_label,selected?.id??null,audience,JSON.stringify(refs)])).rows[0];
-   packet.resume_count=Number(saved.resume_count);packet.resumed_at=stamp(saved.resumed_at);
-  }
-  for(;;){
-   packet.bytes=Buffer.byteLength(JSON.stringify(packet));const actual=Buffer.byteLength(JSON.stringify(packet));
-   if(actual<=maxBytes){packet.bytes=actual;if(Buffer.byteLength(JSON.stringify(packet))===actual)break;continue;}
-   if(!packet.briefing)throw new ToolError('The saved context cannot fit this response budget.');
-   packet.briefing=utf8(packet.briefing,Math.max(0,Buffer.byteLength(packet.briefing)-128));packet.truncated=true;
-  }
-  return packet;
+  if(packet.nightly_update){
+   const update=packet.nightly_update,words=spoken.join(' ').split(/\s+/).filter(Boolean).slice(0,95);
+   words.push('Latest overnight interpretation from '+(update.generated_at??update.created_at).slice(0,10)+': '+update.summary.split(/\s+/).slice(0,35).join(' ')+' Generated hypotheses; current confirmed facts take precedence.');
+   packet.briefing=words.join(' ').split(/\s+/).slice(0,150).join(' ');
+  }else packet.briefing=packet.saved_context?spoken.join(' ').split(/\s+/).slice(0,150).join(' '):'There is no saved context to resume yet. Save the goal and useful details as we go.';
+  if(current&&options.recordReceipt!==false&&packet.saved_context)await writeReceipt(db,a,current.id,packet,brain.content_epoch);
+  return boundPacket(packet,maxBytes);
  });
 }
