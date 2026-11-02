@@ -1,5 +1,27 @@
 # Brain verification
 
+## 3.1 — continuity between calls, live November 2, 2026
+
+Production revision b1b0906c488c, version 3.1.0, is live at https://brain.arxsable.ai. The primary scenario is one existing Sesame connection across separate calls or chats with the same voice. The owner clarified that context loss between conversations, rather than changing assistant identities, is the problem to solve.
+
+| Check | Result |
+| --- | --- |
+| Regression/build | 172/172 tests passed, zero skips; strict TypeScript and build passed on hermes. [Release CI](https://github.com/Oscar-G13/sesame-brain/actions/runs/41535476769) passed tests, clean migrations and both Docker builds. |
+| Public continuity | Actual signup, OAuth DCR/PKCE/consent and 29-tool discovery passed. A fresh client using the same voice/grant recovered unchanged project constraints, open questions and next work without a project ID. Explicit resume within a reused session, current owner corrections, refresh and a 31-minute idle gap passed. |
+| Retrieval behavior | Deterministic resume uses no model and works for pending AI accounts. Tests cover own saved snapshots, note-only and think-only material, unchanged state, read-only grants, source restrictions, revoked grants, byte bounds and exact nonempty retrieval counts. Generic reasoning receives the current bookmarked project. An explicit new project can start a fresh scope after ending a private session. |
+| Browser | Nine isolated desktop/mobile captures plus the public desktop/mobile check passed. One connection is sufficient, saved data is distinct from a retrieval receipt, and assets use version 3.1.0. No horizontal overflow or browser/server errors in the successful public run. |
+| Preservation | Hash-only original-column comparisons across 26 tables passed immediately after migration 0011 and after both public test accounts were deleted. Accounts, credentials, OAuth connections and existing saved content were unchanged. No content backup was created. |
+| Deployment | App, PostgreSQL and sandbox are healthy; migrations 0001–0011 applied. Loopback port 3360 remains. Temporary test database removed after checks. Shared Caddy configuration was not changed. |
+| Operations | Provider, sandbox, workers and scheduler ready. Overall /ready remains 503 only because host storage exceeds its warning threshold. No shared-server cleanup was performed. |
+| Backups | Deferred by the owner; no archives, uploads, offsite resources or restore drills. Future recovery remains documented in DEFERRED-BACKUPS.md. |
+| Native Sesame iPhone | Pending the owner's actual same-voice call A → call B result. Protocol and browser checks do not establish native tool selection or use of returned context. |
+
+Evidence: evidence/v31-tests.json, v31-secret-scan.json, v31-public-continuity.json, continuity-public-browser.json, v31-preservation-after-migration.json, v31-preservation.json and v31-deployment.json. Browser evidence is under evidence/continuity-browser/ and evidence/continuity-public-browser/.
+
+Native acceptance uses the existing Brain connection and the same voice. In call A: “Use Brain to save a Weekend Escape project with a $600 budget; our next step is choosing where to go.” End the call, then start a fresh call/chat and ask: “Use Brain to pick up where we left off. What's the budget and next step?” Record the actual result. No second connection is required. If the native chat reuses the derived session, explicit resume must still retrieve unchanged saved context.
+
+The 3.0 and v2 results below are historical; the original cross-voice native suggestion is superseded by this same-connection acceptance.
+
 ## V3 Living Projects — live November 2, 2026
 
 Production revision 86b4a2ea8962, version 3.0.0, is live at https://brain.arxsable.ai. App, database and sandbox are healthy. All runtime/development work ran on hermes in /srv/sesame-brain.
@@ -20,7 +42,7 @@ Evidence: evidence/v3-tests.json, v3-live-models.json, v3-public-oauth.json, v3-
 
 Two public verifier mistakes were corrected without changing the deployed runtime: recovery hashes were wrongly expected in export (they are intentionally omitted), and a test closed an already-open correction disclosure. The successful public browser receipt retains the real Think proof from its first synthetic account and the project/mobile proof from a second memory-only account. Both accounts were independently confirmed deleted.
 
-Native acceptance: connect Maya and Charlie to the same Brain account with matching assistant labels. Ask Maya to create Weekend Escape with a $600 budget, then ask Charlie to retrieve the project and its budget. Record the actual app outcome separately from protocol tests.
+Historical native suggestion superseded: the owner clarified that calls share infrastructure. The current 3.1 acceptance above uses the same voice and existing connection across calls.
 
 The v2 results below are historical and do not certify v3.
 
