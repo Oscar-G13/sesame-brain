@@ -4,10 +4,13 @@ import { randomUUID } from 'node:crypto';
 import { pool } from '../src/db/index.js';
 import { migrate } from '../scripts/migrate.js';
 import { executeTool,type AuthContext } from '../src/tools/service.js';
-import { think,enqueueJob,runNextJob,recoverInterruptedJobs,jobStatus,listJobs,runAgent } from '../src/brain/engine.js';
+import { think,enqueueJob,runNextJob,recoverInterruptedJobs,jobStatus,listJobs,runAgent,asWebAuth } from '../src/brain/engine.js';
 import { setModelTransportForTests,type ModelResult } from '../src/brain/provider.js';
 import { purgeBrainContent } from '../src/brain/purge.js';
 import { aiConfig,RESTING } from '../src/brain/config.js';
+import {buildModelMemory} from '../src/brain/model-context.js';
+import {touchSession} from '../src/brain/sessions.js';
+import {createProject,addItem} from '../src/projects/service.js';
 import { localDay,BudgetError } from '../src/brain/usage.js';
 const users:string[]=[],client='engine-'+randomUUID();
 before(async()=>{await migrate();await pool.query("INSERT INTO oauth_clients(client_id,kind,metadata) VALUES($1,'dcr','{}')",[client]);});
@@ -86,4 +89,57 @@ test('a running job that reaches a token limit persists a partial result',async(
  const a=await fixture();setModelTransportForTests(async()=>{throw new BudgetError();});
  const queued=await enqueueJob(a,{task:'Bounded work'});await runNextJob(a);
  const status=await jobStatus(a,queued.job_id!) as {state:string;result_note_id:string};assert.equal(status.state,'partial');assert.ok(status.result_note_id);
+});
+
+async function ownerFor(a:AuthContext):Promise<AuthContext>{
+ const session=(await pool.query("INSERT INTO sessions(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 day') RETURNING id",[a.user_id,randomUUID()])).rows[0].id;
+ return asWebAuth(a.user_id,a.brain_id,session);
+}
+test('aggregate injected memory obeys its UTF-8 budget and keeps current constraints ahead of oversized older context',async()=>{
+ const a=await fixture(),owner=await ownerFor(a);
+ const project=await createProject(owner,{title:'Bounded project',goal:'古い巨大目標🙂'.repeat(1200),allowed_agents:['maya']});
+ let state=await addItem(owner,{project_id:project.id,expected_version:project.version,type:'artifact',title:'Oversized old proposal',content:'以前の提案🙂'.repeat(3000)});
+ state=await addItem(owner,{project_id:project.id,expected_version:state.project.version,type:'constraint',title:'Current owner rule',content:'CANONICAL_CURRENT_LIMIT: at most thirty words.',status:'confirmed',source_type:'user_statement'});
+ for(let i=0;i<8;i++)await executeTool(a,'remember',{key:'large-context-'+i,value:'参考資料🙂'.repeat(1000)});
+ const waiting=randomUUID();await pool.query("INSERT INTO jobs(id,user_id,brain_id,requested_by_agent,task,title,state,content_epoch,result_text,result_summary,finished_at,source_audience,audience,visibility) VALUES($1,$2,$3,'maya','Earlier result','Oversized waiting result','done',0,$4,$4,now(),'{maya}','{maya}','restricted')",[waiting,a.user_id,a.brain_id,'完了済み🙂'.repeat(1000)]);
+ const session=await touchSession(a);
+ let injected='';
+ setModelTransportForTests(async request=>{
+  const message=request.messages?.[0].content;assert.equal(typeof message,'string');const raw=message as string,marker='\n\nCURRENT USER REQUEST\n';
+  assert.ok(raw.includes(marker));injected=raw.slice(0,raw.indexOf(marker));
+  assert.ok(Buffer.byteLength(injected)<=aiConfig.contextTokens,'Project, continuity, base context and memory wrappers share one byte budget.');
+  assert.ok(injected.includes('CANONICAL_CURRENT_LIMIT'));assert.match(injected,/CURRENT OWNER-CONFIRMED CONSTRAINT/);assert.match(injected,/omitted|shortened|context_truncated/);
+  assert.ok(!injected.includes('\uFFFD'),'Budgeting must preserve complete UTF-8 characters.');
+  return response('I will keep the welcome to thirty words.');
+ });
+ const answer=await think(a,{text:'Continue the current project.'},session.session.id);assert.match(answer.answer,/thirty/);assert.ok(injected.length);
+ assert.deepEqual((await pool.query('SELECT surfaced_to FROM jobs WHERE id=$1',[waiting])).rows[0].surfaced_to,[],'An omitted or truncated waiting result must remain unacknowledged.');
+});
+test('a full continuation queue preserves partial spoken output and honestly reports that no continuation was queued',async()=>{
+ const a=await fixture();for(let i=0;i<10;i++)await enqueueJob(a,{task:'Existing queued task '+i});
+ setModelTransportForTests(async request=>{request.onText?.('I have checked the first source.');await new Promise<void>(resolve=>request.signal.addEventListener('abort',()=>resolve(),{once:true}));return{...response('I have checked the first source.'),incomplete:true};});
+ const answer=await think(a,{text:'Continue checking.'},undefined,Date.now()+100);
+ assert.equal(answer.job_id,null);assert.match(answer.answer,/I have checked the first source/);assert.match(answer.answer,/could not queue the rest.*ten tasks/i);assert.ok(!answer.answer.includes('will have more for you next time'));
+ assert.equal((await pool.query("SELECT count(*)::int AS n FROM jobs WHERE user_id=$1 AND state='queued'",[a.user_id])).rows[0].n,10);
+});
+test('partial continuation capacity handling never swallows revocation, purge or hosted-AI access errors',async()=>{
+ for(const mode of ['grant','purge','access'] as const){
+  const a=await fixture();for(let i=0;i<10;i++)await enqueueJob(a,{task:'Existing task '+i});
+  setModelTransportForTests(async request=>{
+   request.onText?.('Partial information must not bypass authority.');
+   if(mode==='grant')await pool.query('UPDATE grants SET revoked_at=now() WHERE id=$1',[a.grant_id]);
+   else if(mode==='purge')await purgeBrainContent(a.user_id,a.brain_id);
+   else await pool.query("UPDATE users SET ai_access_state='revoked' WHERE id=$1",[a.user_id]);
+   return{...response('Partial information must not bypass authority.'),incomplete:true};
+  });
+  await assert.rejects(think(a,{text:'Work within current authority.'}),(error:unknown)=>[401,403,409].includes(Number((error as {status?:number}).status)),mode);
+ }
+});
+
+test('the source receipt limit omits an entire base pack and leaves its waiting jobs unacknowledged',async()=>{
+ const a=await fixture(),owner=await ownerFor(a),project=await createProject(owner,{title:'Receipt bounded project',allowed_agents:['maya']});
+ const state=await addItem(owner,{project_id:project.id,expected_version:project.version,type:'constraint',title:'Current rule',content:'Keep the current confirmed rule.',status:'confirmed'});
+ const baseRefs=Array.from({length:40},()=>({collection:'facts' as const,id:randomUUID()})),waiting=randomUUID();
+ const memory=await buildModelMemory(state,undefined,aiConfig.contextTokens,async()=>({blocks:[{kind:'job_result',text:'BASE_MUST_BE_OMITTED',sourceIds:[waiting]}],estimatedTokens:20,bytes:20,memoryVersion:'0',truncated:false,includedJobIds:[waiting],audience:['all'],sourceRefs:baseRefs}));
+ assert.ok(memory.sourceRefs.length<=40);assert.ok(memory.sourceRefs.some(ref=>ref.collection==='project_items'));assert.ok(!memory.text.includes('BASE_MUST_BE_OMITTED'));assert.match(memory.text,/omitted or shortened/);assert.deepEqual(memory.includedJobIds,[]);
 });

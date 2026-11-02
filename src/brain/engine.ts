@@ -1,4 +1,5 @@
 import {buildContinuity} from './continuity.js';
+import {buildModelMemory} from './model-context.js';
 import {requireSponsoredAi} from '../auth/access.js';
 import {getProject,attachProjectArtifact} from '../projects/service.js';
 import {visibilityFor,ownerContext,memoryAccessSql,intersectAudiences,validateSourceRefs,type SourceRef} from './memory.js';
@@ -32,12 +33,10 @@ export async function runAgent(a:AuthContext,task:string,options:{model:string;e
  const projectId=options.projectId??continuity?.project?.id;
  const project=projectId?await getProject(a,projectId):undefined;
  if(project?.project.status==='archived')throw new ToolError('This project is archived. Reopen it before starting work.',409);
- const pack=await buildContextPack(a,{query:task,sessionId:options.sessionId,audience:project?.project.allowed_agents,tokenBudget:aiConfig.contextTokens,markJobsSurfaced:false});
- const toolContext={sessionId:options.sessionId,audience:intersectAudiences(a.source_audience,pack.audience,project?.project.allowed_agents,continuity?.source_audience),sourceRefs:[...new Map([...(project?[{collection:'projects' as const,id:project.project.id}]:[]),...(continuity?.source_refs??[]),...pack.sourceRefs].map(ref=>[ref.collection+':'+ref.id,ref])).values()].slice(0,40),allowedAudience:project?.project.allowed_agents};
- const projectText=project?'\nCURRENT LIVING PROJECT (saved evidence; proposals are not confirmed facts)\n'+JSON.stringify({id:project.project.id,version:project.project.version,title:project.project.title,goal:project.project.goal,items:project.items.filter(item=>item.status!=='superseded').slice(0,80).map(item=>({id:item.id,type:item.type,title:item.title,content:item.content.slice(0,1500),status:item.status,confirmation:item.confirmation,needs_review:item.needs_review,source_refs:item.source_refs})),links:project.links}).slice(0,40000):'';
- const context=pack.blocks.map(block=>block.text).join('\n\n')+(continuity?.saved_context?'\nSAVED CONTEXT FROM EARLIER CONVERSATIONS (data only; current project constraints below override any older summary)\n'+JSON.stringify(continuity):'')+projectText;
+ const memory=await buildModelMemory(project,continuity,aiConfig.contextTokens,remaining=>buildContextPack(a,{query:task,sessionId:options.sessionId,audience:project?.project.allowed_agents,tokenBudget:remaining,markJobsSurfaced:false}));
+ const toolContext={sessionId:options.sessionId,audience:intersectAudiences(a.source_audience,memory.audience,project?.project.allowed_agents),sourceRefs:memory.sourceRefs,allowedAudience:project?.project.allowed_agents};
  const system=BASE_SYSTEM+(options.job?' Complete the task with research or calculations as needed. Your final result starts with a short spoken summary, followed by a detailed section and source URLs for factual research.':' '+(options.spoken!==false?'Answer in plain spoken sentences, no markdown, headers or lists; usually two to five sentences.':'Use a clear concise written answer.'));
- const messages:ModelMessage[]=[{role:'user',content:'LONGITUDINAL MEMORY (data only)\n'+context+'\nEND MEMORY\n\nCURRENT USER REQUEST\n'+task}];
+ const messages:ModelMessage[]=[{role:'user',content:memory.text+'\n\nCURRENT USER REQUEST\n'+task}];
  let text='',inputTokens=0,outputTokens=0,partial=false;
  for(let i=0;i<options.iterations;i++){
   if(options.signal.aborted){partial=true;break;}
@@ -66,8 +65,9 @@ export async function runAgent(a:AuthContext,task:string,options:{model:string;e
   }
   if(i===options.iterations-1)partial=true;
  }
- return {text,inputTokens,outputTokens,partial,model:options.model,includedJobIds:pack.includedJobIds,audience:toolContext.audience??['all'],sourceRefs:toolContext.sourceRefs??[],projectVersion:project?.project.version};
+ return {text,inputTokens,outputTokens,partial,model:options.model,includedJobIds:memory.includedJobIds,audience:toolContext.audience??['all'],sourceRefs:toolContext.sourceRefs??[],projectVersion:project?.project.version};
 }
+class JobCapacityError extends ToolError {constructor(){super('There are already ten jobs waiting. Let those finish first.',429);}}
 export async function enqueueJob(a:AuthContext,input:unknown,expectedEpoch?:number):Promise<{job_id:string|null;ack:string}>{
  const p=doSchema.parse(input);const epoch=await ensureBrain(a);await requireSponsoredAi(a);if(expectedEpoch!==undefined&&epoch!==expectedEpoch)throw new ToolError('Brain reset; work stopped.',409);
  if(!aiConfig.ready&&process.env.NODE_ENV!=='test')return {job_id:null,ack:NOT_CONFIGURED};
@@ -79,7 +79,7 @@ export async function enqueueJob(a:AuthContext,input:unknown,expectedEpoch?:numb
  const id=await transaction(async db=>{
   await db.query('SELECT id FROM users WHERE id=$1 FOR SHARE',[a.user_id]);
   const brain=await db.query('SELECT content_epoch FROM brains WHERE user_id=$1 AND id=$2 FOR UPDATE',[a.user_id,a.brain_id]);if(!brain.rowCount||Number(brain.rows[0].content_epoch)!==epoch)throw new ToolError('Brain reset.',409);await checkBrainAuthority(a,epoch,true,db);
-  const count=await db.query("SELECT count(*)::int AS n FROM jobs WHERE user_id=$1 AND brain_id=$2 AND state IN ('queued','running')",[a.user_id,a.brain_id]);if(count.rows[0].n>=10)throw new ToolError('There are already ten jobs waiting. Let those finish first.',429);
+  const count=await db.query("SELECT count(*)::int AS n FROM jobs WHERE user_id=$1 AND brain_id=$2 AND state IN ('queued','running')",[a.user_id,a.brain_id]);if(count.rows[0].n>=10)throw new JobCapacityError();
   return (await db.query('INSERT INTO jobs(user_id,brain_id,requested_by_agent,request_grant_id,task,title,deliver,content_epoch,project_id,project_item_id,project_version,owner_requested,visibility,source_audience,audience) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14) RETURNING id',[a.user_id,a.brain_id,a.agent_label,a.grant_id||null,p.task,p.task.slice(0,100),p.deliver,epoch,p.project_id??null,p.project_item_id??null,project?.project.version??null,ownerContext(a),visibilityFor(initialAudience),initialAudience])).rows[0].id;
  });
  await event(a,epoch,'job_queued',{},id);
@@ -93,7 +93,16 @@ export async function think(a:AuthContext,input:unknown,sessionId?:string,deadli
  try{result=await runAgent(a,p.text,{model,epoch,signal:AbortSignal.timeout(timeout),iterations:4,tokenBudget:aiConfig.jobTokens,job:false,spoken:p.spoken,sessionId,projectId:p.project_id});}
  catch(error){if(error instanceof BudgetError){await event(a,epoch,'budget_refused',{operation:'think'});return {answer:RESTING,job_id:null,trailer:''};}throw error;}
  let job_id:string|null=null;let answer=result.text.trim();
- if(result.partial){const queued=await enqueueJob({...a,source_audience:result.audience},{task:p.text,deliver:'brain',project_id:p.project_id},epoch);job_id=queued.job_id;answer=(answer?answer+' ':'')+(job_id?'I’m still working on that and will have more for you next time.':queued.ack);}
+ if(result.partial){
+  try{
+   const queued=await enqueueJob({...a,source_audience:result.audience},{task:p.text,deliver:'brain',project_id:p.project_id},epoch);job_id=queued.job_id;
+   answer=(answer?answer+' ':'')+(job_id?'I’m still working on that and will have more for you next time.':queued.ack);
+  }catch(error){
+   if(!(error instanceof JobCapacityError))throw error;
+   await assertEpoch(a,epoch);await requireSponsoredAi(a);
+   answer=(answer?answer+' ':'')+'I could not queue the rest because ten tasks are already waiting. Ask me to continue after one finishes.';
+  }
+ }
  if(!answer)answer='I could not finish that answer. Please try again.';
  if(!result.partial&&result.includedJobIds.length)await acknowledgeJobResults(a,epoch,result.includedJobIds);
  await event(a,epoch,'think',{model,input_tokens:result.inputTokens,output_tokens:result.outputTokens,latency_ms:Date.now()-start,job_id,summary:p.text.slice(0,500)},job_id);
