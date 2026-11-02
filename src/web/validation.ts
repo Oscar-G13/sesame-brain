@@ -7,7 +7,7 @@ export function passwordError(password: unknown): string | undefined {
   if (common.has(password.toLowerCase())) return 'Choose a password that is not on the common-password list.';
 }
 export function safeNext(value: unknown): string {
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') && !/[\\\x00-\x20]/.test(value) ? value : '/account';
+  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') && !/[\\\x00-\x20]/.test(value) ? value : '/dashboard';
 }
 export function validAgent(value: unknown): value is string {
   return typeof value === 'string' && /^[a-z0-9-]{1,32}$/.test(value) && value !== 'all';

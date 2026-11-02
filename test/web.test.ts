@@ -10,7 +10,7 @@ test('password checks minimum length and bundled common passwords', () => {
 });
 test('return URL keeps redirects on this origin', () => {
  assert.equal(safeNext('/authorize?client_id=abc'), '/authorize?client_id=abc');
- for(const value of ['//evil.example','https://evil.example','/\\evil.example','/\nLocation:evil']) assert.equal(safeNext(value), '/account');
+ for(const value of ['//evil.example','https://evil.example','/\\evil.example','/\nLocation:evil']) assert.equal(safeNext(value), '/dashboard');
 });
 test('agent labels reserve broadcast and enforce slug length', () => {
  assert.ok(validAgent('charlie')); assert.ok(validAgent('agent-2')); assert.ok(validAgent('3'));

@@ -7,6 +7,8 @@ import { pool, transaction } from '../db/index.js';
 import { config } from '../config.js';
 import { createSession, destroySession, requireUser, csrf, csrfToken } from '../auth/session.js';
 import { loginRateLimit } from '../auth/rate-limit.js';
+import { purgeBrainContent,removeUserWorkspaces } from '../brain/purge.js';
+import { dashboardRouter } from './dashboard.js';
 import { passwordError, safeNext, validAgent, validEmail } from './validation.js';
 
 export const webRouter = Router();
@@ -66,6 +68,7 @@ webRouter.post('/logout', csrf, async (req, res) => {
   await destroySession(req, res);
   res.redirect(303, '/');
 });
+webRouter.use('/dashboard',dashboardRouter);
 webRouter.get('/account', requireUser, async (req, res) => {
   const grants = await pool.query(`SELECT g.id,g.agent_label,g.client_id,g.created_at,g.last_used_at,c.metadata->>'client_name' AS client_name FROM grants g LEFT JOIN oauth_clients c ON c.client_id=g.client_id WHERE g.user_id=$1 AND g.revoked_at IS NULL ORDER BY g.created_at DESC`, [req.user!.id]);
   page(res, 'account', 'Your shared brain', { grants: grants.rows, notice: req.query.saved === '1' ? 'Saved.' : undefined });
@@ -74,9 +77,10 @@ webRouter.get('/account/export', requireUser, async (req, res) => {
   const userId = req.user!.id;
   const data = await transaction(async db => {
     await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
-    const result: Record<string, unknown> = { format_version: 1, exported_at: new Date().toISOString(), account: req.user };
-    for (const table of ['brains','notes','handoffs','facts','snapshots','activity']) {
-      result[table] = (await db.query(`SELECT * FROM ${table} WHERE user_id=$1`, [userId])).rows;
+    const result: Record<string, unknown> = { format_version: 2, exported_at: new Date().toISOString(), account: req.user };
+    for (const table of ['brains','notes','handoffs','facts','snapshots','activity','brain_sessions','jobs','usage','usage_reservations','nightly_runs']) {
+      const rows=(await db.query(`SELECT * FROM ${table} WHERE user_id=$1`, [userId])).rows;
+      result[table] = rows.map(row=>{const {session_key,transport_session_id,token_hash,password_hash,secret_hash,lease_id,...safe}=row;return safe;});
     }
     result.connections = (await db.query('SELECT id,brain_id,agent_label,client_id,scope,created_at,last_used_at,revoked_at FROM grants WHERE user_id=$1', [userId])).rows;
     result.oauth_clients = (await db.query('SELECT c.client_id,c.kind,c.metadata,c.created_at,c.last_seen_at FROM oauth_clients c WHERE EXISTS(SELECT 1 FROM grants g WHERE g.client_id=c.client_id AND g.user_id=$1)', [userId])).rows;
@@ -139,7 +143,10 @@ webRouter.post('/account/signout-everywhere', requireUser, csrf, async (req, res
 webRouter.get('/account/delete', requireUser, (_req, res) => page(res, 'delete', 'Delete your account'));
 webRouter.post('/account/delete', requireUser, csrf, async (req, res) => {
   if (req.body.confirm !== 'DELETE') return page(res.status(400), 'delete', 'Delete your account', { error: 'Type DELETE to confirm.' });
+  const brains=(await pool.query('SELECT id FROM brains WHERE user_id=$1',[req.user!.id])).rows;
+  for(const brain of brains)await purgeBrainContent(req.user!.id,brain.id);
   await pool.query('DELETE FROM users WHERE id=$1', [req.user!.id]);
+  await removeUserWorkspaces(req.user!.id);
   await destroySession(req, res);
   res.redirect(303, '/');
 });

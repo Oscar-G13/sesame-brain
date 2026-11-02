@@ -13,3 +13,7 @@ document.querySelectorAll('[data-copy]').forEach(button => {
     }
   });
 });
+
+const brainSelector=document.querySelector('#brain-selector');
+if(brainSelector)brainSelector.addEventListener('change',()=>brainSelector.form.requestSubmit());
+document.querySelectorAll('[data-pending-label]').forEach(form=>form.addEventListener('submit',()=>{if(!form.checkValidity())return;const button=form.querySelector('button[type="submit"]');if(button){button.disabled=true;button.textContent=form.dataset.pendingLabel;}}));

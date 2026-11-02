@@ -1,5 +1,8 @@
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdir,writeFile,access as fsAccess } from 'node:fs/promises';
+import { join } from 'node:path';
+import { aiConfig } from '../src/brain/config.js';
 import { once } from 'node:events';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { app } from '../src/app.js';
@@ -52,7 +55,8 @@ test('account forms enforce CSRF, update grant identity, invalidate pending code
  assert.equal((await pool.query('SELECT count(*)::int AS n FROM sessions WHERE user_id=$1',[user])).rows[0].n,0);assert.equal(await authenticateToken(access),null);
  html=await(await browser.get('/login')).text();assert.equal((await browser.form('/login',{email,password:newPassword,_csrf:csrf(html)})).status,303);
  const exported=await(await browser.get('/account/export')).json() as {account:{email:string},connections:unknown[]};assert.equal(exported.account.email,email);assert.equal(exported.connections.length,1);
- html=await(await browser.get('/account/delete')).text();assert.equal((await browser.form('/account/delete',{confirm:'wrong',_csrf:csrf(html)})).status,400);assert.equal((await pool.query('SELECT 1 FROM users WHERE id=$1',[user])).rowCount,1);
- assert.equal((await browser.form('/account/delete',{confirm:'DELETE',_csrf:csrf(html)})).status,303);
+ const userWorkspace=join(aiConfig.workspace,user,brain,'0');await mkdir(userWorkspace,{recursive:true});await writeFile(join(userWorkspace,'retained.txt'),'Private workspace test');
+ html=await(await browser.get('/account/delete')).text();assert.equal((await browser.form('/account/delete',{confirm:'DELETE'})).status,403);assert.equal((await browser.form('/account/delete',{confirm:'wrong',_csrf:csrf(html)})).status,400);assert.equal((await pool.query('SELECT 1 FROM users WHERE id=$1',[user])).rowCount,1);
+ assert.equal((await browser.form('/account/delete',{confirm:'DELETE',_csrf:csrf(html)})).status,303);await assert.rejects(fsAccess(join(aiConfig.workspace,user)));
  for(const table of ['users','brains','sessions','auth_codes','grants','notes','handoffs','facts','snapshots','activity'])assert.equal((await pool.query(`SELECT count(*)::int AS n FROM ${table} WHERE ${table==='users'?'id':'user_id'}=$1`,[user])).rows[0].n,0,table);
 });

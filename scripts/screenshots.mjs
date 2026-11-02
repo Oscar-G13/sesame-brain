@@ -20,7 +20,7 @@ try {
  for(const [name,path] of [['home','/'],['docs','/docs'],['privacy','/privacy'],['login','/login'],['signup','/signup']])await capture(name,path);
  const email='screenshots-'+Date.now()+'-'+randomBytes(6).toString('hex')+'@example.invalid';
  await page.getByLabel('Email address').fill(email);await page.getByLabel('Password',{exact:true}).fill(randomBytes(24).toString('base64url'));await page.getByRole('checkbox').check();
- await page.getByRole('button',{name:'Create account'}).click();await page.waitForURL(base+'/account');created=true;
+ await page.getByRole('button',{name:'Create account'}).click();await page.waitForURL(base+'/dashboard');created=true;await page.goto(base+'/account');
  await capture('account');
  const verifier=randomBytes(48).toString('base64url');
  const params=new URLSearchParams({client_id:base+'/e2e/client.json',redirect_uri:base+'/e2e/callback',response_type:'code',code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256',scope:'brain:read brain:write',resource:base+'/mcp',state:randomBytes(12).toString('hex')});

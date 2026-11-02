@@ -11,7 +11,7 @@ let child,created=false,raw='';
 const redacted=text=>text.replace(/https?:[^\s"<>]*(?:authorize|callback)[^\s"<>]*/g,'[OAuth URL redacted]').replace(/(access_token|refresh_token|client_secret|code_verifier)(["\s:=]+)[A-Za-z0-9_.-]+/g,'$1$2[redacted]');
 try {
  await page.goto(base+'/signup');await page.getByLabel('Email address').fill(email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('checkbox').check();
- await page.getByRole('button',{name:'Create account'}).click();await page.waitForURL(base+'/account');created=true;
+ await page.getByRole('button',{name:'Create account'}).click();await page.waitForURL(base+'/dashboard');created=true;await page.goto(base+'/account');
  await page.getByRole('button',{name:'Sign out of this browser'}).click();await page.waitForURL(base+'/');
  let foundUrl;const authorizationUrl=new Promise((resolve,reject)=>{
   const timer=setTimeout(()=>reject(new Error('Inspector did not request interactive OAuth within 150 seconds')),150000);

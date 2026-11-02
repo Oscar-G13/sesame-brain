@@ -5,8 +5,10 @@ import pg from 'pg';
 
 const base = (process.env.BASE_URL ?? 'https://brain.arxsable.ai').replace(/\/$/,'');
 const resource = base+'/mcp';
-const redirectUri = base+'/e2e/callback';
-const expectedTools = ['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','leave_note','mark_notes_read','handoff','accept_handoff','complete_handoff','remember','forget','save_snapshot'];
+const redirectUri = process.env.E2E_REDIRECT_URI ?? base+'/e2e/callback';
+const registrationMethod=process.env.E2E_REGISTRATION_METHOD??'both';
+assert.ok(['both','dcr','cimd'].includes(registrationMethod),'Choose E2E_REGISTRATION_METHOD=both,dcr,or cimd');
+const expectedTools = ['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','leave_note','mark_notes_read','handoff','accept_handoff','complete_handoff','remember','forget','save_snapshot','think','do','job_status','jobs_list','end_session'];
 type Tokens = {access_token:string;refresh_token:string;token_type:string;expires_in:number;scope:string};
 class Browser {
  cookies = new Map<string,string>();
@@ -41,7 +43,7 @@ async function authorize(browser:Browser,clientId:string,agent:string):Promise<T
  const approved=await browser.form('/authorize',{...parameters,_csrf:csrf(html),agent_label:agent,decision:'approve'});
  assert.equal(approved.status,303,'Consent approval must redirect');
  const location=new URL(approved.headers.get('location')!);
- assert.equal(location.origin,base);assert.equal(location.pathname,'/e2e/callback');assert.equal(location.searchParams.get('state'),state);assert.equal(location.searchParams.get('iss'),base);assert.ok(location.searchParams.get('code'));
+ assert.equal(location.origin,new URL(redirectUri).origin);assert.equal(location.pathname,new URL(redirectUri).pathname);assert.equal(location.searchParams.get('state'),state);assert.equal(location.searchParams.get('iss'),base);assert.ok(location.searchParams.get('code'));
  const tokens=await json<Tokens>(await fetch(base+'/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',client_id:clientId,redirect_uri:redirectUri,code:location.searchParams.get('code')!,code_verifier:verifier,resource})}));
  assert.equal(tokens.token_type.toLowerCase(),'bearer');assert.equal(tokens.expires_in,3600);assert.ok(tokens.refresh_token);
  return tokens;
@@ -55,13 +57,13 @@ async function tool<T=any>(client:Client,name:string,args:Record<string,unknown>
  const result=await client.callTool({name,arguments:args});
  assert.ok(!result.isError,`Tool failed: ${name}`);
  const text=result.content.find(c=>c.type==='text');assert.ok(text&&text.type==='text');
- return JSON.parse(text.text) as T;
+ const value=JSON.parse(text.text);return (Array.isArray(value.items)&&["read_notes","recall","list_snapshots","activity","jobs_list"].includes(name)?value.items:value) as T;
 }
 async function verifyDeleted(userId:string,brainIds:string[],grantIds:string[]) {
  if(!process.env.DATABASE_URL) { console.log('INFO Database cascade verification skipped: DATABASE_URL unavailable; HTTP deletion verified.');return; }
  const db=new pg.Pool({connectionString:process.env.DATABASE_URL,max:1});
  try {
-  for(const table of ['users','brains','sessions','auth_codes','grants','notes','handoffs','facts','snapshots','activity']) {
+  for(const table of ['users','brains','sessions','auth_codes','grants','notes','handoffs','facts','snapshots','activity','brain_sessions','jobs','usage','usage_reservations','nightly_runs']) {
    const column=table==='users'?'id':'user_id';
    const rows=await db.query(`SELECT count(*)::int AS n FROM ${table} WHERE ${column}=$1`,[userId]);
    assert.equal(rows.rows[0].n,0,`Deleted account left rows in ${table}`);
@@ -70,11 +72,11 @@ async function verifyDeleted(userId:string,brainIds:string[],grantIds:string[]) 
    const rows=await db.query(`SELECT count(*)::int AS n FROM ${table} WHERE grant_id=ANY($1::uuid[])`,[grantIds]);
    assert.equal(rows.rows[0].n,0,`Deleted account left rows in ${table}`);
   }
-  assert.ok(brainIds.length);console.log('PASS account deletion cascades across all 12 user-owned tables');
+  assert.ok(brainIds.length);console.log('PASS account deletion cascades across all 17 user-owned tables');
  } finally {await db.end();}
 }
 async function scenario(kind:'DCR'|'CIMD') {
- console.log(`BEGIN ${kind} live OAuth and shared-memory scenario`);
+ console.log(`BEGIN ${kind} OAuth and shared-memory scenario`);
  const browser=new Browser(); const email='e2e-'+Date.now()+'-'+randomBytes(6).toString('hex')+'@example.invalid';const password=randomBytes(24).toString('base64url');
  let created=false,deleted=false; const clients:Client[]=[];
  try {
@@ -91,7 +93,7 @@ async function scenario(kind:'DCR'|'CIMD') {
   } else {assert.equal((await fetch(clientId)).status,200,'Enable E2E_ENABLED for test metadata');}
   const mayaTokens=await authorize(browser,clientId,'maya'),charlieTokens=await authorize(browser,clientId,'charlie');
   const maya=await connect(mayaTokens),charlie=await connect(charlieTokens);clients.push(maya,charlie);
-  const listing=await maya.listTools();assert.deepEqual(listing.tools.map(t=>t.name).sort(),expectedTools.sort());console.log(`PASS ${kind} OAuth discovery, registration, login, PKCE, consent and all 15 tools`);
+  const listing=await maya.listTools();assert.deepEqual(listing.tools.map(t=>t.name).sort(),expectedTools.sort());console.log(`PASS ${kind} OAuth discovery, registration, login, PKCE, consent and all 20 tools`);
   const identity=await tool(maya,'whoami');assert.equal(identity.agent,'maya');assert.ok(identity.connected_agents.some((a:{agent:string})=>a.agent==='charlie'));
   await tool(maya,'remember',{key:'e2e-train',value:'7:40 train',tags:['verification']});
   const found=await tool<any[]>(charlie,'recall',{query:'train'});assert.ok(found.some(f=>f.key==='e2e-train'));
@@ -111,7 +113,7 @@ async function scenario(kind:'DCR'|'CIMD') {
   assert.equal(reused.status,400);assert.equal((await reused.json() as {error:string}).error,'invalid_grant');
   const killed=await fetch(resource,{method:'POST',headers:{Authorization:'Bearer '+refreshed.access_token,'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:99,method:'tools/list',params:{}})});assert.equal(killed.status,401);
   console.log(`PASS ${kind} refresh rotates; replay revokes the complete token family`);
-  const exported=await json<any>(await browser.request('/account/export'));assert.equal(exported.account.email,email);assert.ok(exported.notes.some((n:{id:string})=>n.id===note.id));assert.ok(exported.handoffs.some((h:{id:string})=>h.id===handoff.id));assert.ok(exported.facts.some((f:{key:string})=>f.key==='e2e-train'));assert.ok(exported.snapshots.some((s:{id:string})=>s.id===snapshot.id));
+  const exported=await json<any>(await browser.request('/account/export'));assert.equal(exported.account.email,email);for(const key of ['brain_sessions','jobs','usage','usage_reservations','nightly_runs'])assert.ok(Array.isArray(exported[key]),'Missing export collection '+key);assert.ok(exported.notes.some((n:{id:string})=>n.id===note.id));assert.ok(exported.handoffs.some((h:{id:string})=>h.id===handoff.id));assert.ok(exported.facts.some((f:{key:string})=>f.key==='e2e-train'));assert.ok(exported.snapshots.some((s:{id:string})=>s.id===snapshot.id));
   const confirmation=await browser.request('/account/delete');assert.equal(confirmation.status,200);
   assert.equal((await browser.form('/account/delete',{_csrf:csrf(await confirmation.text()),confirm:'DELETE'})).status,303);deleted=true;
   assert.equal((await browser.request('/account/export')).status,302);
@@ -134,7 +136,7 @@ async function main() {
  const prm=await json<any>(await fetch(metadataUrl));assert.equal(prm.resource,resource);assert.deepEqual(prm.authorization_servers,[base]);
  const as=await json<any>(await fetch(prm.authorization_servers[0]+'/.well-known/oauth-authorization-server'));assert.equal(as.issuer,base);assert.equal(as.authorization_endpoint,base+'/authorize');
  console.log('PASS 401 challenge → protected-resource metadata → authorization-server discovery');
- await scenario('DCR');await scenario('CIMD');
- console.log('PASS ALL live OAuth/MCP verification scenarios');
+ if(registrationMethod!=='cimd')await scenario('DCR');if(registrationMethod!=='dcr')await scenario('CIMD');
+ console.log('PASS ALL OAuth/MCP verification scenarios');
 }
 main().catch(error=>{console.error('FAIL',error instanceof Error?error.message:'Unknown failure');process.exitCode=1;});
