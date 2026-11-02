@@ -101,3 +101,13 @@ test('first explicit resume records one delivered retrieval rather than a hidden
  const a=await connect(f.token),resumed=await call(a,'resume');assert.equal(resumed.resume_count,1);assert.equal(resumed.saved_context,true);
  const row=(await pool.query('SELECT resume_count FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND closed_at IS NULL',[f.user,f.brain])).rows[0];assert.equal(Number(row.resume_count),1);assert.equal(providerCalls,0);
 });
+
+test('failed first-touch tools do not count undelivered context, while resume and whoami count successful delivery once',async()=>{
+ const f=await fixture();await pool.query("INSERT INTO facts(user_id,brain_id,key,value,updated_by) VALUES($1,$2,'Known detail','A real saved continuity detail.','maya')",[f.user,f.brain]);
+ const a=await connect(f.token),failed=await a.callTool({name:'job_status',arguments:{job_id:randomUUID()}});assert.equal(failed.isError,true);const errorText=failed.content.find(value=>value.type==='text');assert.ok(errorText&&errorText.type==='text');assert.match(errorText.text,/Job not found/);assert.ok(!errorText.text.includes('A real saved continuity detail.'));
+ const metadata=async(user:string,brain:string)=>(await pool.query('SELECT coalesce(sum(resume_count),0) AS n,max(resumed_at) AS at FROM brain_sessions WHERE user_id=$1 AND brain_id=$2',[user,brain])).rows[0];
+ const undelivered=await metadata(f.user,f.brain);assert.equal(Number(undelivered.n),0);assert.equal(undelivered.at,null,'A failed tool response delivered no saved context');
+ const resumed=await call(a,'resume');assert.equal(resumed.saved_context,true);assert.ok(JSON.stringify(resumed).includes('A real saved continuity detail.'));assert.equal(resumed.resume_count,1);assert.equal(Number((await metadata(f.user,f.brain)).n),1);
+ const other=await fixture();await pool.query("INSERT INTO facts(user_id,brain_id,key,value,updated_by) VALUES($1,$2,'First touch detail','A successful whoami can deliver context.','maya')",[other.user,other.brain]);
+ const b=await connect(other.token),first=firstContinuity(await call(b,'whoami'));assert.equal(first.saved_context,true);assert.ok(JSON.stringify(first).includes('A successful whoami can deliver context.'));assert.equal(Number((await metadata(other.user,other.brain)).n),1,'Legitimate first-touch delivery must count once');assert.equal(providerCalls,0);
+});

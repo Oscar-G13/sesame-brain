@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "target": "isolated test database and local container only",
+  "production_mutations": 0,
+  "provider_calls": 0,
+  "checks": [
+    "inner correction/review and outer add drafts preserved on manual live update",
+    "focus and cursor selection restored",
+    "stale version retained and actual form POST returns 409 without losing draft",
+    "explicit discard adopts latest version guard and resets fields"
+  ],
+  "captures": [
+    {
+      "name": "inner-drafts-preserved-desktop",
+      "width": 1440
+    },
+    {
+      "name": "inner-drafts-preserved-mobile",
+      "width": 390
+    }
+  ],
+  "browser_errors": []
+}
