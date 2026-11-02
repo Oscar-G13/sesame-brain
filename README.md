@@ -149,3 +149,5 @@ The following is the project owner's supplied credits statement; the human-revie
 Password blocklist: SecLists common-credentials 10k-most-common.txt (MIT). See src/web/PASSWORD-LIST-SOURCE.md. Protocol references: [MCP authorization 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization), [official TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk), [Sesame's connection guide](https://www.sesame.com/journal/getting-started).
 
 MIT © 2026 Oscar G. / Arx Sable LLC.
+
+Provider API keys and the SMTP password stay in the live environment file and are omitted from private configuration backup archives. Restore those separately after disaster recovery. Database and text-workspace archives retain the project backup policy.
