@@ -1,3 +1,4 @@
+import {reportSubsystem} from '../ops/readiness.js';
 import {aiConfig} from './config.js';
 import {reserveUsage,settleUsage,BudgetError,type Identity} from './usage.js';
 export type Block={type:string;[key:string]:unknown};
@@ -95,6 +96,7 @@ export async function generateBudgeted(a:Identity,request:ModelRequest):Promise<
  const reservation=await reserveUsage(a,request.model,estimate);let result:ModelResult|undefined;let uncertain=true;
  // Even internal callers must supply a bounded provider request.
  const bounded={...request,signal:AbortSignal.any([request.signal,AbortSignal.timeout(15*60*1000)])};
- try{result=await(testTransport??(request.provider==='openai'?openai:anthropic))(bounded);uncertain=result.incomplete;return result;}
+ try{result=await(testTransport??(request.provider==='openai'?openai:anthropic))(bounded);uncertain=result.incomplete;if(!testTransport)await reportSubsystem('provider',true,'ready').catch(()=>{});return result;}
+ catch(error){if(!testTransport&&error instanceof ProviderError){const code=/401|403/.test(error.message)?'credentials_rejected':/429/.test(error.message)?'capacity_limited':'unavailable';await reportSubsystem('provider',false,code).catch(()=>{});}throw error;}
  finally{await settleUsage(a,reservation,result?.inputTokens??0,result?.outputTokens??0,uncertain);}
 }

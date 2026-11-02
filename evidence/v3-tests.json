@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-02T21:28:01.407400+00:00",
+  "host": "hermes",
+  "directory": "/srv/sesame-brain",
+  "database": "isolated brain_test",
+  "typecheck": "passed",
+  "tests": 145,
+  "passed": 145,
+  "failed": 0,
+  "skipped": 0,
+  "routine_provider": "injected; no paid calls",
+  "real_provider_receipt": "v3-live-models.json",
+  "native_iphone": "pending user verification",
+  "backups": "deferred; none created"
+}

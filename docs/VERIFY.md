@@ -1,3 +1,12 @@
+# V3 Living Projects acceptance
+
+All builds, runtime and tests execute on hermes in `/srv/sesame-brain`. The historical v2 results below do not certify v3. Synthetic fixtures preserve owner content. Backups and restore drills are deferred by the owner.
+
+- Final full regression suite: 145/145 passed, zero skipped; strict TypeScript check passed. Receipt: evidence/v3-tests.json.
+- Browser: populated outcome dashboard and project graph, all six types, desktop and iPhone widths, authenticated Think POST, complete job-result rendering.
+- Real Anthropic project acceptance passed; see evidence/v3-live-models.json. Public OAuth/MCP acceptance is recorded separately after deployment.
+- Native Sesame: pending user verification in the official Sesame Inc. iPhone app. Protocol/provider/browser tests do not substitute for this gate.
+
 # Brain v2 verification
 
 Verification date: November 2, 2026 (America/Los_Angeles). Runtime and tests execute on hermes in /srv/sesame-brain. The production owner account is never used as a test fixture. Phase 1–3 model timings below are real-provider tests against an isolated test instance; public production acceptance is recorded separately.

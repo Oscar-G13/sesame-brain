@@ -1,0 +1,900 @@
+{
+  "version": "3.0.0",
+  "tools": {
+    "whoami": {
+      "description": "Returns which assistant you are in this shared brain, which other assistants are connected, and how much is waiting for you. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "inbox": {
+      "description": "Call this at the start of a conversation. Returns notes and handoffs other assistants left for you. Does not mark anything as read. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    "read_notes": {
+      "description": "Search the shared notes visible to you: addressed to you, broadcast to all, or written by you. Use from to see what a specific assistant wrote. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,32}$"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              },
+              {
+                "type": "string",
+                "const": "all"
+              }
+            ]
+          },
+          "unread_only": {
+            "default": false,
+            "type": "boolean"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "tag": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    "recall": {
+      "description": "Look up facts any assistant has stored about the user. Use this before asking the user something another assistant may already know. key matches exactly; query searches keywords. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "tag": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "limit": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    "list_snapshots": {
+      "description": "List memory backups saved by assistants in this brain. Returns metadata only. Use get_snapshot to read a backup. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "agent": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,32}$"
+          },
+          "limit": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    "get_snapshot": {
+      "description": "Read the full text of one memory backup in this brain, using its id from list_snapshots. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "activity": {
+      "description": "What has been happening in the shared brain recently, across all assistants. Returns event metadata and actor, not private note contents. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 30,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    "leave_note": {
+      "description": "Leave a note for one or more other assistants. They see it the next time they check their inbox. Use all to tell everyone. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "to": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]{1,32}$"
+                  },
+                  {
+                    "type": "string",
+                    "const": "all"
+                  }
+                ]
+              },
+              {
+                "minItems": 1,
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z0-9-]{1,32}$"
+                    },
+                    {
+                      "type": "string",
+                      "const": "all"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "tags": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        },
+        "required": [
+          "to",
+          "text"
+        ]
+      }
+    },
+    "mark_notes_read": {
+      "description": "Mark notes as read after you have handled them. Supply ids from your inbox, or all:true to mark every note addressed to you. Reading is tracked separately for each assistant. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "all": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "handoff": {
+      "description": "Hand a task to another assistant. Include everything they need: what the user asked, what you found, what is left. They will see it in their inbox. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,32}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "context": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000
+          },
+          "next_steps": {
+            "type": "string",
+            "maxLength": 32000
+          }
+        },
+        "required": [
+          "to",
+          "title",
+          "context"
+        ]
+      }
+    },
+    "accept_handoff": {
+      "description": "Call when you start working a handoff that was sent to you. The sender receives an automatic note. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "complete_handoff": {
+      "description": "Call when a handoff is finished. The summary goes back to whoever sent it. Only the receiving assistant can complete it. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 7000
+          }
+        },
+        "required": [
+          "id",
+          "summary"
+        ]
+      }
+    },
+    "remember": {
+      "description": "Store a fact about the user that every connected assistant should know. Retains attributed revisions; conflicts with owner-confirmed facts become proposals instead of overwriting the confirmed value with the same key. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "tags": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    },
+    "forget": {
+      "description": "Remove a shared fact by its exact key from this brain. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    },
+    "save_snapshot": {
+      "description": "Save everything you currently know about the user as a backup the user owns. Write it as plain text or markdown. Snapshots stay until you explicitly clear memory or delete your account. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200000
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "content"
+        ]
+      }
+    },
+    "think": {
+      "description": "Use this for anything that needs reasoning, research, or memory beyond the current call. Pass what the user said. You get back a spoken answer. Say it in your own voice. If job_id is present, tell the user you are working on it and will have more next time. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000
+          },
+          "depth": {
+            "default": "quick",
+            "type": "string",
+            "enum": [
+              "quick",
+              "deep"
+            ]
+          },
+          "spoken": {
+            "default": true,
+            "type": "boolean"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    "do": {
+      "description": "Use this for anything that will take longer than a few seconds: research, writing, comparing options, building something, checking several sources. The user does not have to stay on the line. Acknowledge, then move on. Results appear next time you connect. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000
+          },
+          "deliver": {
+            "default": "brain",
+            "type": "string",
+            "enum": [
+              "brain",
+              "brain+email"
+            ]
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "project_item_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "task"
+        ]
+      }
+    },
+    "job_status": {
+      "description": "Check one background task by job_id and tell the user its status in plain language. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      }
+    },
+    "jobs_list": {
+      "description": "List the latest twenty background tasks and whether results are ready. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "end_session": {
+      "description": "Call this when the user says goodbye or the conversation is clearly ending. Call it before you say your own goodbye. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "projects_list": {
+      "description": "List the living projects visible to this assistant. Start here to find the project the user means; never invent an ID. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "project_create": {
+      "description": "Start a persistent project the user requested. Capture its title and goal. Shared by default; choose specific assistant labels for a restricted project. This does not start work or authorize external actions. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "goal": {
+            "default": "",
+            "type": "string",
+            "maxLength": 12000
+          },
+          "allowed_agents": {
+            "minItems": 1,
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{1,32}$"
+            }
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "project_brief": {
+      "description": "Pick up a project across conversations. Returns the current goal, constraints, decisions, open questions, review needs, source receipts and recent changes. Check before continuing work. Brain only knows records saved through its tools, not the complete Sesame transcript. The retrieval receipt is not proof of native memory synchronization. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "since_version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "item_ids": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    "project_add_item": {
+      "description": "Record a project constraint, decision, question, milestone, task or artifact with evidence and dependency IDs. Separate a user statement from your summary, inference or tool result. Your entry is a proposal; only the owner can confirm it. depends_on lists prerequisite item IDs. Reuse request_id on retries. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "constraint",
+              "decision",
+              "question",
+              "milestone",
+              "task",
+              "artifact"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "content": {
+            "default": "",
+            "type": "string",
+            "maxLength": 32000
+          },
+          "status": {
+            "default": "proposed",
+            "type": "string",
+            "enum": [
+              "proposed",
+              "confirmed",
+              "in_progress",
+              "blocked",
+              "done",
+              "superseded"
+            ]
+          },
+          "source_type": {
+            "default": "assistant_summary",
+            "type": "string",
+            "enum": [
+              "user_statement",
+              "assistant_summary",
+              "inference",
+              "tool_result"
+            ]
+          },
+          "source_refs": {
+            "default": [],
+            "maxItems": 24,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "fact",
+                    "note",
+                    "snapshot",
+                    "handoff",
+                    "job",
+                    "project_item",
+                    "url",
+                    "statement"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "url": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "format": "uri"
+                },
+                "label": {
+                  "type": "string",
+                  "maxLength": 240
+                },
+                "excerpt": {
+                  "type": "string",
+                  "maxLength": 1200
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "depends_on": {
+            "default": [],
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": [
+          "project_id",
+          "expected_version",
+          "type",
+          "title"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "project_update_item": {
+      "description": "Correct or advance a project item using the last expected project version and a reason. Confirmed content becomes a proposed change for the owner to review. Corrections preserve history and flag affected dependent work; never claim old results remain valid after their assumptions change. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "item_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 32000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "confirmed",
+              "in_progress",
+              "blocked",
+              "done",
+              "superseded"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "source_refs": {
+            "maxItems": 24,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "fact",
+                    "note",
+                    "snapshot",
+                    "handoff",
+                    "job",
+                    "project_item",
+                    "url",
+                    "statement"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "url": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "format": "uri"
+                },
+                "label": {
+                  "type": "string",
+                  "maxLength": 240
+                },
+                "excerpt": {
+                  "type": "string",
+                  "maxLength": 1200
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "depends_on": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": [
+          "project_id",
+          "expected_version",
+          "item_id",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "project_update": {
+      "description": "Update the project goal, title or status with a reason and expected version. Only the owner can change who may access it. Changes never authorize publishing, payments or contacting anyone. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "goal": {
+            "type": "string",
+            "maxLength": 12000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "completed",
+              "archived"
+            ]
+          },
+          "allowed_agents": {
+            "minItems": 1,
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{1,32}$"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "project_id",
+          "expected_version",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "project_history": {
+      "description": "Show why a project changed: dated saved records, actor, earlier value, later value and evidence. Never invent transcript quotes. Use before_version to page older history. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "before_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      }
+    },
+    "memory_history": {
+      "description": "Show saved fact revisions, evidence, earlier values and proposed corrections. Explain the source honestly; do not invent transcript quotes. Save memory during the call. Use think for reasoning, do for longer tasks. Speak naturally, never JSON; weave in briefing. Call end_session before goodbye. Writes retain attribution, evidence and visibility.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "limit": {
+            "default": 30,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      }
+    }
+  }
+}

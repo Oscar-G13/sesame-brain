@@ -15,7 +15,7 @@ afterEach(()=>setModelTransportForTests(undefined));
 after(async()=>{for(const id of users)await pool.query('DELETE FROM users WHERE id=$1',[id]);await pool.query('DELETE FROM oauth_clients WHERE client_id=$1',[client]);await pool.end();});
 async function fixture(label='maya'):Promise<AuthContext>{
  const user=randomUUID(),brain=randomUUID(),grant=randomUUID();users.push(user);
- await pool.query("INSERT INTO users(id,email,password_hash) VALUES($1,$2,'fixture')",[user,user+'@engine.invalid']);
+ await pool.query("INSERT INTO users(id,email,password_hash,ai_access_state) VALUES($1,$2,'fixture','approved')",[user,user+'@engine.invalid']);
  await pool.query('INSERT INTO brains(id,user_id) VALUES($1,$2)',[brain,user]);
  await pool.query("INSERT INTO grants(id,user_id,brain_id,client_id,agent_label,scope) VALUES($1,$2,$3,$4,$5,'brain:read brain:write')",[grant,user,brain,client,label]);
  return {user_id:user,brain_id:brain,grant_id:grant,agent_label:label,client_id:client,token_hash:'fixture-'+randomUUID(),scopes:['brain:read','brain:write']};

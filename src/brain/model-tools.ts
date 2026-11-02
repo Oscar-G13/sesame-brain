@@ -1,3 +1,4 @@
+import {intersectAudiences,memoryAccessSql,routedAudience,type MemoryWriteOptions,type SourceRef} from './memory.js';
 import https from 'node:https';
 import http from 'node:http';
 import {lookup} from 'node:dns/promises';
@@ -35,7 +36,7 @@ async function authority(a:AuthContext,epoch:number,write:boolean,db:Db=pool):Pr
  if(!(await db.query('SELECT b.id FROM brains b JOIN users u ON u.id=b.user_id WHERE b.user_id=$1 AND b.id=$2 AND b.content_epoch=$3 AND u.deleted_at IS NULL',[a.user_id,a.brain_id,epoch])).rowCount)throw new ToolError('This work was stopped because the brain was reset.',409);
  if(a.client_id==='brain-worker'&&a.token_hash.startsWith('job:')){
   const id=a.token_hash.slice(4);
-  if(uuid.test(id)&&(await db.query("SELECT id FROM jobs WHERE user_id=$1 AND brain_id=$2 AND id=$3 AND requested_by_agent=$4 AND content_epoch=$5 AND state='running'",[a.user_id,a.brain_id,id,a.agent_label,epoch])).rowCount)return;
+  if(uuid.test(id)&&(await db.query("SELECT j.id FROM jobs j LEFT JOIN grants g ON g.id=j.request_grant_id WHERE j.user_id=$1 AND j.brain_id=$2 AND j.id=$3 AND j.requested_by_agent=$4 AND j.content_epoch=$5 AND j.state='running' AND (j.owner_requested OR (g.revoked_at IS NULL AND g.id IS NOT NULL AND g.user_id=j.user_id AND g.brain_id=j.brain_id AND g.agent_label=j.requested_by_agent AND $6::text[]<@regexp_split_to_array(g.scope,'\\s+')))",[a.user_id,a.brain_id,id,a.agent_label,epoch,required])).rowCount)return;
  }else if(a.client_id==='dashboard'&&a.browser_session_id){
   if(uuid.test(a.browser_session_id)&&(await db.query('SELECT id FROM sessions WHERE user_id=$1 AND id=$2 AND expires_at>now()',[a.user_id,a.browser_session_id])).rowCount)return;
  }else if(uuid.test(a.grant_id)){
@@ -65,7 +66,7 @@ export async function fetchPublicUrl(value:string,signal:AbortSignal,deps:{resol
  bounded.throwIfAborted();const address=answers[0];
  return new Promise((resolve,reject)=>{
   let settled=false;const finish=(error:Error|null,text?:string)=>{if(settled)return;settled=true;if(error)reject(error);else resolve(text!);};
-  const request=(deps.get??https.get)(url,{signal:bounded,family:address.family,...(!isIP(host)?{servername:host}:{}),headers:{Accept:'text/plain,text/html,application/json','User-Agent':'Brain/2 (+https://brain.arxsable.ai)'},lookup:(_host,options,callback)=>{if(typeof options==='object'&&options.all)(callback as unknown as (error:null,addresses:typeof answers)=>void)(null,[address]);else callback(null,address.address,address.family);}},response=>{
+  const request=(deps.get??https.get)(url,{signal:bounded,family:address.family,...(!isIP(host)?{servername:host}:{}),headers:{Accept:'text/plain,text/html,application/json','User-Agent':'Brain/3 (+https://brain.arxsable.ai)'},lookup:(_host,options,callback)=>{if(typeof options==='object'&&options.all)(callback as unknown as (error:null,addresses:typeof answers)=>void)(null,[address]);else callback(null,address.address,address.family);}},response=>{
    if(response.statusCode!==200){response.destroy();request.destroy();finish(new Error('URL returned a non-success response; redirects are not followed.'));return;}
    if(!/^(text\/|application\/json(?:;|$))/i.test(String(response.headers['content-type']??''))){response.destroy();request.destroy();finish(new Error('Only text content is supported.'));return;}
    if(Number(response.headers['content-length']??0)>262144){response.destroy();request.destroy();finish(new Error('Page exceeds text limit.'));return;}
@@ -140,21 +141,26 @@ async function writeArtifact(a:AuthContext,epoch:number,name:string,content:stri
   }finally{if(temporary)await unlink(temporary).catch(()=>{});for(const handle of handles.reverse())await handle.close();}
  });
 }
-export async function callModelTool(a:AuthContext,epoch:number,name:string,input:unknown,signal:AbortSignal):Promise<unknown>{
+export interface ModelToolContext {sessionId?:string;audience?:string[];sourceRefs?:SourceRef[];allowedAudience?:string[];}
+export async function callModelTool(a:AuthContext,epoch:number,name:string,input:unknown,signal:AbortSignal,context:ModelToolContext={}):Promise<unknown>{
  signal.throwIfAborted();await authority(a,epoch,name!=='brain_search');
  if(name==='brain_search'){
   const p=z.object({query:z.string().max(256),collection:z.enum(['all','notes','facts','snapshots','handoffs','jobs']).default('all')}).parse(input);
   const result:Record<string,unknown[]>={};
   for(const table of p.collection==='all'?['notes','facts','snapshots','handoffs','jobs']:[p.collection]){
    const expression={notes:"m.text",facts:"m.key || ' ' || m.value",snapshots:"COALESCE(m.title,'') || ' ' || m.content",handoffs:"m.title || ' ' || m.context",jobs:"m.title || ' ' || COALESCE(m.result_text,'')"}[table]!;
-   const visibility=table==='notes'?" AND (m.from_agent=$4 OR $4=ANY(m.to_agents) OR 'all'=ANY(m.to_agents))":table==='handoffs'?" AND (m.from_agent=$4 OR m.to_agent=$4 OR m.to_agent='all' OR EXISTS(SELECT 1 FROM jobs j WHERE j.user_id=m.user_id AND j.brain_id=m.brain_id AND j.handoff_id=m.id))":'';
-   const params:unknown[]=[a.user_id,a.brain_id,p.query];if(visibility)params.push(a.agent_label);
-   result[table]=(await pool.query('SELECT m.id,left('+expression+',3000) AS text FROM '+table+' m WHERE m.user_id=$1 AND m.brain_id=$2 AND strpos(lower('+expression+'),lower($3))>0'+visibility+' ORDER BY m.id LIMIT 10',params)).rows;
+   const params:unknown[]=[a.user_id,a.brain_id,p.query];
+   const visibility=memoryAccessSql(table,'m',a,params);
+   const rows=(await pool.query('SELECT m.*,'+(table==='handoffs'?'EXISTS(SELECT 1 FROM jobs j WHERE j.user_id=m.user_id AND j.brain_id=m.brain_id AND j.handoff_id=m.id) AS job_result_visible,':'')+'left('+expression+',3000) AS excerpt FROM '+table+' m WHERE m.user_id=$1 AND m.brain_id=$2 AND strpos(lower('+expression+'),lower($3))>0 AND '+visibility+' ORDER BY m.id LIMIT 10',params)).rows;
+   const visible=rows.filter(row=>{const candidate=routedAudience(table,row),target=context.allowedAudience;return !target||candidate.includes('all')||!target.includes('all')&&target.every(label=>candidate.includes(label));});
+   for(const row of visible){context.audience=intersectAudiences(context.audience,routedAudience(table,row));const ref={collection:table,id:row.id} as SourceRef;if(!(context.sourceRefs??=[]).some(old=>old.collection===ref.collection&&old.id===ref.id)&&context.sourceRefs.length<40)context.sourceRefs.push(ref);}
+   result[table]=visible.map(row=>({id:row.id,text:row.excerpt,source_type:row.source_type??'saved_record',confirmation:row.confirmation??'unconfirmed'}));
   }return result;
  }
- if(name==='brain_write_note'){const p=z.object({text:z.string().min(1).max(8000)}).parse(input);return executeTool(a,'leave_note',{to:'all',text:p.text},epoch,db=>authority(a,epoch,true,db));}
- if(name==='brain_write_fact'){const p=z.object({key:z.string().min(1).max(128),value:z.string().min(1).max(8000)}).parse(input);return executeTool(a,'remember',p,epoch,db=>authority(a,epoch,true,db));}
- if(name==='brain_write_handoff'){const p=z.object({to:z.string(),title:z.string().min(1).max(256),context:z.string().min(1).max(32000)}).parse(input);return executeTool(a,'handoff',p,epoch,db=>authority(a,epoch,true,db));}
+ const writeOptions:MemoryWriteOptions={sessionId:context.sessionId,sourceAudience:context.audience??['all'],provenance:{source_type:'model_derived',confidence:'unknown',confirmation:'unconfirmed',source_refs:context.sourceRefs??[],reason:'Saved during requested reasoning; review before treating as a confirmed fact.'}};
+ if(name==='brain_write_note'){const p=z.object({text:z.string().min(1).max(8000)}).parse(input);return executeTool(a,'leave_note',{to:'all',text:p.text},epoch,db=>authority(a,epoch,true,db),writeOptions);}
+ if(name==='brain_write_fact'){const p=z.object({key:z.string().min(1).max(128),value:z.string().min(1).max(8000)}).parse(input);return executeTool(a,'remember',p,epoch,db=>authority(a,epoch,true,db),writeOptions);}
+ if(name==='brain_write_handoff'){const p=z.object({to:z.string(),title:z.string().min(1).max(256),context:z.string().min(1).max(32000)}).parse(input);return executeTool(a,'handoff',p,epoch,db=>authority(a,epoch,true,db),writeOptions);}
  if(name==='url_fetch'){const p=z.object({url:z.string().url()}).parse(input);return{text:await fetchPublicUrl(p.url,signal)};}
  if(name==='code_execution'){const p=z.object({code:z.string().min(1).max(32000)}).parse(input);return callSandbox(p.code,signal);}
  if(name==='file_write'){const p=z.object({filename:z.string().regex(filename).refine(value=>!value.includes('..')),content:z.string().max(500000)}).parse(input);return writeArtifact(a,epoch,p.filename,p.content);}

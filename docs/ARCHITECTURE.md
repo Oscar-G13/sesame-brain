@@ -1,3 +1,19 @@
+# V3 architecture additions
+
+Migrations 0005–0010 add fact evidence/history, explicit source audiences, sponsored-AI approval and recovery codes, versioned projects, staged proposals and incremental content quotas. Existing credentials and content remain. Legacy generated artifacts without reliable provenance become owner-visible only, retaining their original bytes.
+
+Project dependency edges point from dependent work to prerequisites. Assistant edits to confirmed items stage changes; owner approval applies a correction and flags transitive dependents for review. Mutations serialize under brain/project locks, compare versions and retain before/after events. Retry UUIDs bind an action and payload fingerprint. Restricted audiences can narrow but cannot expand over historical private content. Saved sources are checked for ownership, visibility and exact excerpts when supplied. Receipts describe tool delivery, not native memory synchronization.
+
+Context and search filter evidence before retrieval. Sessions inherit audiences of delivered evidence, including briefings, so subsequent memory writes cannot broaden a private read. Jobs carry initial audience and source provenance; completion rechecks authority, epoch and source permissions. Two workers share the service, at most one per account, preferring the account least recently served. Interrupted running jobs fail explicitly on restart; queued jobs survive. This release does not claim checkpoint resume.
+
+Provider budget reservations require account approval. Recovery codes are single-use hashes; recovery revokes old logins/grants and stops queued work. Database triggers bound content growth at 25 MiB / 10,000 logical rows per brain by default; deletions, shrinking and bookkeeping remain possible at quota. Session/usage/activity metadata is rate limited but excluded from that content quota. Export format3 includes all five project collections, fact revisions and AI access history.
+
+`/ready` reports sanitized provider, sandbox, workers, nightly and disk status. `/health` retains database-only restart semantics. Backups and restore are explicitly deferred.
+
+V3 migrations introduce privacy semantics that v2 code does not enforce. Build and test before migration, and do not blindly roll back to a v2 image afterward; assess compatibility or fix forward. Prior image metadata is retained for investigation, not a promise of safe automatic rollback.
+
+The original implementation background follows; version-specific release results belong in VERIFY.md.
+
 # Brain architecture
 
 This is an independent Arx Sable product on the shared Helsinki host **hermes**. Its authoritative checkout, development tools, tests, builds and runtime live at `/srv/sesame-brain`; the Mac supplies SSH and account access, and is not an application dependency.
@@ -27,7 +43,7 @@ Docker Compose project `sesame-brain` runs the application, PostgreSQL, and an i
 
 Compose loads secrets from `/srv/sesame-brain/.env`. That server-owned file is gitignored and must remain mode 0600. The application runs as the non-root `node` user; the environment is supplied by Docker, not embedded in its image. Model IDs are configured in `config/ai-models.json` and overridden with the documented environment values. API credentials never belong in model configuration, SQL fixtures, logs, screenshots or Git history.
 
-The original `oscar` crontab has the project backup at 03:17 host time and a five-minute health watchdog. Those are independent of the v2 nightly reasoning schedule, which uses **America/Los_Angeles**. Existing backups are same-host recovery copies, with no offsite recovery claim.
+The five-minute Brain watchdog remains enabled. The project-only backup cron is disabled at the owner's request; deploy creates no archives. Existing archives are preserved. DEFERRED-BACKUPS.md describes future encrypted offsite storage and restore verification. Nightly reasoning uses **America/Los_Angeles**.
 
 A service-owned workspace is required for background-job files. Its configured path must be mounted persistently into the otherwise read-only application. Code-execution isolation and job tool access are documented with their acceptance evidence in `VERIFY.md`; configuration alone does not prove a sandbox.
 
@@ -55,7 +71,7 @@ A missing API key disables model work while leaving memory and OAuth available. 
 
 ## Nightly formulation, audit and deterministic diff
 
-`src/brain/nightly.ts` exposes `runNightlyBrain`, `runDueNightlies` and startup recovery for interrupted claims. The service scheduler calls the due-run helper during the configured hour, default 03:00 America/Los_Angeles. It selects only brains with activity in the preceding 24 hours. A unique `nightly_runs(user_id, brain_id, local_date)` claim makes repeated ticks, DST clock repetition and concurrent attempts idempotent. A failed or skipped claim is not silently rerun that same day.
+`src/brain/nightly.ts` exposes `runNightlyBrain`, `runDueNightlies` and startup recovery for interrupted claims. The service scheduler calls the due-run helper during the configured hour, default 03:00 America/Los_Angeles. It selects approved brains with new user-origin activity in the preceding 24 hours, excluding its own outputs and automatic summaries/artifacts. A unique `nightly_runs(user_id, brain_id, local_date)` claim makes repeated ticks, DST clock repetition and concurrent attempts idempotent. A failed or skipped claim is not silently rerun that same day. A full outage during the scheduled hour is shown as overdue; this release does not automatically catch up later that day.
 
 A run reads the previous validated formulation, its matching audit, a bounded longitudinal context pack and recent source material filtered by both ownership columns. Source text is untrusted evidence, not instructions. The configured deep model produces a formulation conforming to [dossier.v1.json](schema/dossier.v1.json). Schema or semantic failure is returned to the model for one correction attempt; a second failure leaves no snapshot artifacts.
 

@@ -1,6 +1,6 @@
 # Brain
 
-A shared brain for Sesame voice assistants, with reasoning, background work, and memory between calls. Connect Maya, Miles, Simone, Charlie, or another OAuth MCP client to the same account, choosing an assistant label for each connection.
+A shared brain for Sesame voice assistants, with living projects, reasoning, background work, and evidence that carries between calls. Connect Maya, Miles, Simone, Charlie, or another OAuth MCP client to the same account, choosing an assistant label for each connection.
 
 **Unofficial, not affiliated with or endorsed by Sesame AI Inc.** Sesame is their mark and is used descriptively. This is vibecoded software: a Claude-drafted specification, Codex implementation, and human-owned production deployment. A completed human review is not claimed by automated verification.
 
@@ -14,25 +14,29 @@ Try “leave Charlie a note that the Portland trip is booked,” “anything in 
 
 Other OAuth MCP clients can connect to the same endpoint. Client ID Metadata Documents, dynamic registration, and configured fixed clients are supported. The Streamable HTTP endpoint supports modern and compatible legacy requests; it does not provide the separate deprecated HTTP+SSE transport.
 
-## Brain v2: think, do, and the between-calls agent
+## Brain v3: Living Projects
 
-Brain exposes twenty tools. The original fifteen store and retrieve notes, handoffs, facts, snapshots, and activity. Five additional tools provide:
+Start a project with Maya, continue with Charlie, and retrieve the same saved goal, constraints, decisions, questions, tasks, milestones and artifacts. The dashboard shows real dependency links and which project version each connection last retrieved. Brain cannot inspect or rewrite Sesame's native memory.
+
+An assistant's change to confirmed information becomes a proposal. Owner approval preserves the old value, records its source and reason, and flags dependent work for review. Expected versions prevent silent overwrites; retry IDs prevent duplicate changes. Project jobs attach sourced artifacts and flag assumptions that changed during work.
+
+Brain exposes 28 tools: the original fifteen memory tools, five reasoning/session tools, seven project tools and `memory_history`. The reasoning tools provide:
 
 - **`think`**: reason over the current request and this brain's longitudinal context. Quick and deep modes have separate deadlines. A timed-out answer can continue as a background job.
-- **`do`**: queue a longer task and return an acknowledgement immediately. Results become a shared result note and a handoff. `job_status` and `jobs_list` show progress.
+- **`do`**: queue a longer task and return an acknowledgement immediately. Results become a note and handoff restricted to their source audience. `job_status` and `jobs_list` show progress.
 - **`end_session`**: save a call summary when the conversation ends, when a configured model is available.
 
 Every successful tool response includes a short `trailer`. A new call can also receive a `briefing` describing changes since that assistant's previous session. The assistant should weave these into conversation and speak answers naturally, without reading JSON aloud. For `think` and `do`, first-touch briefing uses immediate deterministic headlines so a separate briefing model does not delay the answer or acknowledgement.
 
 This MCP endpoint is stateless, so persisted call sessions derive from the access-token hash and assistant label. Thirty idle minutes start a new session. The sweeper checks every minute; a writing/reasoning session quiet for ten minutes can become an `auto` snapshot. Browser dashboard sessions remain tied to the signed-in browser session. Call summaries recheck grant or browser-session authorization. Account deletion and memory-purge epochs prevent delayed work from recreating removed memory.
 
-Context prioritizes facts, the latest snapshot, ten earlier snapshot headlines, visible open handoffs, unsurfaced completed jobs, visible notes from fourteen days, recent activity, and current-session writes. It truncates from the bottom within a configurable budget. The conservative bound counts one UTF-8 byte as one estimated token, including separators, rather than claiming an exact model tokenizer count. Large collections are fetched in pages. Cache keys include user, brain, assistant, and session; content triggers invalidate cached packs after writes.
+Context retrieval scores saved records against the current question, including relevant older notes. It reserves space for current-session changes and waiting results. A conservative UTF-8 byte budget bounds the pack and labels truncation. Permission checks apply before context assembly, search, summaries and result delivery. Reading restricted material narrows subsequent writes in that Brain session. Fact revisions retain prior values, sources, confidence and confirmation status. AI-written facts remain unconfirmed; edits to owner-confirmed facts become proposals.
 
-At 03:00 **America/Los_Angeles**, the nightly scheduler considers brains active during the preceding day. It writes a nonclinical, conversation-derived formulation, an independent audit, and a diff as three retained snapshots. Formulations use the versioned [dossier schema](docs/schema/dossier.v1.json), with evidence labels, alternatives, qualitative confidence, dated relationship reports, and no diagnoses or numerical personality scores. An optional OpenAI auditor provides a second model lab; otherwise the configured deep model audits with a separate prompt.
+At 03:00 **America/Los_Angeles**, the nightly scheduler considers approved brains with new user-origin activity during the preceding day. Its own generated records do not trigger another review. It writes a nonclinical, conversation-derived formulation, an independent audit, and a diff as three retained snapshots. Formulations use the versioned [dossier schema](docs/schema/dossier.v1.json), with evidence labels, alternatives, qualitative confidence, dated relationship reports, and no diagnoses or numerical personality scores. An optional OpenAI auditor provides a second model lab; otherwise the configured deep model audits with a separate prompt.
 
 The dashboard lets the account owner browse memory, capture a note or fact, ask Brain to think, start, inspect, or stop jobs, review nightly insights and token usage, download workspace files, export data, and explicitly clear a selected brain. Clearing memory preserves the account, password, and assistant connections. Account deletion remains a separate two-step action. **Snapshots are never automatically pruned.**
 
-AI requests require server-side credentials. Without an Anthropic key, existing memory and OAuth connections keep working, while AI actions report that reasoning is not connected; no fabricated answer, briefing, or snapshot is substituted. Daily usage limits pause model work until the next Los Angeles calendar day. Jobs persist across restarts; interrupted running work is marked failed rather than left running forever.
+New accounts can use memory and projects immediately; hosted AI requires operator approval. Existing accounts retain their AI access. AI requests require server-side credentials. Without an Anthropic key, existing memory and OAuth connections keep working, while AI actions report that reasoning is not connected; no fabricated answer, briefing, or snapshot is substituted. Daily usage limits pause model work until the next Los Angeles calendar day. Jobs persist across restarts; interrupted running work is marked failed rather than left running forever.
 
 Background tools can search memory, write non-destructive memory updates, fetch public URLs, search the web when the configured model supports it, and create per-brain workspace files. Code runs in a separate non-root, resource-limited service reached through a Unix socket, using fresh temporary directories, a minimal environment, and a hard timeout. **Code execution has no network access.** Public URL fetching and provider web search are separate tools; code does not inherit the app's credentials, database access, or workspace mount.
 
@@ -40,10 +44,12 @@ When AI is used, relevant context is sent to Anthropic, and to OpenAI only when 
 
 The default Sonnet/Opus 5.5 model IDs were checked against the connected Anthropic account on November 2, 2026. Model IDs and web-search tool versions live in configuration. Model availability and provider-backed acceptance checks must be rechecked for a different account; local fake-provider tests do not establish live provider behavior. Deployment and verification evidence belongs in [VERIFY.md](docs/VERIFY.md).
 
+Account recovery uses one-time codes generated in Account after checking the current password; only hashes are stored. Recovery invalidates old logins and assistant connections. Content limits default to 25 MiB and 10,000 content rows per brain; reaching a limit rejects growth without deleting existing memory. Workspace files have a separate 5 MiB / 100-file limit.
+
 ## Screenshots
 
-![Brain mobile landing](evidence/screenshots/home-390.png)
-![Choose an assistant](evidence/screenshots/consent-390.png)
+![Living Projects on mobile](evidence/living-projects-browser/project-dense-mobile.png)
+![Brain outcome dashboard](evidence/living-projects-browser/outcome-home-desktop.png)
 
 ## Self host in five commands
 
@@ -65,6 +71,7 @@ All keys below are read from the gitignored server `.env`; `.env.example` contai
 
 | Variable | Default / purpose |
 | --- | --- |
+| `BRAIN_MAX_ACCOUNTS` | `100`; admission cap for new accounts. |
 | `BASE_URL` | Public HTTPS origin, without a trailing slash. |
 | `PORT` | `3000`, application port inside its container. |
 | `HOST_PORT` | `3360`, published on host loopback only. |
@@ -137,7 +144,7 @@ Test a restore in a fresh isolated database before replacing production:
 gunzip -c backups/brain-TIMESTAMP.sql.gz | docker compose exec -T db psql -U brain -d NEW_DATABASE
 ```
 
-The project supports a daily 03:17 host-time backup and five-minute health watchdog through the owner's crontab; inspect the installed entries for their current enabled state. The watchdog restarts only Brain after three consecutive failures. `/health` reports database readiness, version, and uptime. Credentials remain in private mode-600 server files outside Git.
+The five-minute watchdog restarts only Brain after repeated `/health` failures. `/health` reports database readiness, version and uptime; `/ready` separately reports provider, sandbox, job, nightly and storage health without tenant data. Backups and restore drills are deferred at the owner's request. The Brain backup cron is disabled and deploy does not create backups. Existing archives are preserved; [the future backup design](docs/DEFERRED-BACKUPS.md) is a plan, not an active service.
 
 ## Credits
 The following is the project owner's supplied credits statement; the human-review statement has not been independently verified by Codex:
@@ -150,4 +157,4 @@ Password blocklist: SecLists common-credentials 10k-most-common.txt (MIT). See s
 
 MIT © 2026 Oscar G. / Arx Sable LLC.
 
-Provider API keys and the SMTP password stay in the live environment file and are omitted from private configuration backup archives. Restore those separately after disaster recovery. Database and text-workspace archives retain the project backup policy.
+Provider API keys and SMTP passwords stay only in the private live environment. No offsite backup or successful v3 restore is claimed.

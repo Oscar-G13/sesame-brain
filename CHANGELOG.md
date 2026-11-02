@@ -1,3 +1,11 @@
+## 3.0.0 — Living Projects
+
+- Versioned cross-assistant projects with sources, reviewable corrections, dependency review and retrieval receipts.
+- Private-source inheritance, fact history, relevant older-memory retrieval and project-aware nightly review without self-trigger loops.
+- Fixed dashboard reasoning; readable nightly insights, live project views and full task results.
+- Hosted-AI approval, one-time recovery, content quotas, fair workers and subsystem readiness.
+- Backup work deferred by the owner; existing archives preserved and future recovery documented.
+
 # Changelog
 
 ## 2.0.0 — 2026-11-02

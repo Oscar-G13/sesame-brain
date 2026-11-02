@@ -17,7 +17,7 @@ export const toolDefinitions = {
  handoff:{description:'Hand a task to another assistant. Include everything they need: what the user asked, what you found, what is left. They will see it in their inbox.',inputSchema:z.object({to:agent,title:z.string().min(1).max(256),context:z.string().min(1).max(32000),next_steps:z.string().max(32000).optional()})},
  accept_handoff:{description:'Call when you start working a handoff that was sent to you. The sender receives an automatic note.',inputSchema:z.object({id})},
  complete_handoff:{description:'Call when a handoff is finished. The summary goes back to whoever sent it. Only the receiving assistant can complete it.',inputSchema:z.object({id,summary:z.string().min(1).max(7000)})},
- remember:{description:'Store a fact about the user that every connected assistant should know. Overwrites an existing fact with the same key.',inputSchema:z.object({key:z.string().min(1).max(128),value:z.string().min(1).max(8000),tags})},
+ remember:{description:'Store a fact about the user that every connected assistant should know. Retains attributed revisions; conflicts with owner-confirmed facts become proposals instead of overwriting the confirmed value with the same key.',inputSchema:z.object({key:z.string().min(1).max(128),value:z.string().min(1).max(8000),tags})},
  forget:{description:'Remove a shared fact by its exact key from this brain.',inputSchema:z.object({key:z.string().min(1).max(128)})},
  save_snapshot:{description:'Save everything you currently know about the user as a backup the user owns. Write it as plain text or markdown. Snapshots stay until you explicitly clear memory or delete your account.',inputSchema:z.object({content:z.string().min(1).max(200000),title:z.string().max(256).optional()})}
 } as const;

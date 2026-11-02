@@ -6,6 +6,7 @@ cd /srv/sesame-brain
 exec 9>.deploy.lock
 flock -n 9 || { echo 'Another Brain deploy is running' >&2; exit 1; }
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then echo 'Commit tracked changes before deployment' >&2; exit 1; fi
+if [[ -n "$(git ls-files --others --exclude-standard -- src migrations scripts config)" ]]; then echo 'Commit new runtime files before deployment' >&2; exit 1; fi
 git pull --ff-only
 export IMAGE_TAG
 IMAGE_TAG=$(git rev-parse --short=12 HEAD)
@@ -16,7 +17,7 @@ fi
 docker compose -p sesame-brain build app sandbox
 docker compose -p sesame-brain up -d db sandbox app
 for _ in $(seq 1 60); do
- if curl --max-time 5 --fail --silent http://127.0.0.1:3360/health >/dev/null; then
+ if curl --max-time 5 --fail --silent http://127.0.0.1:3360/health >/dev/null && curl --max-time 5 --fail --silent http://127.0.0.1:3360/ready >/dev/null; then
   python3 - "$IMAGE_TAG" <<'PY'
 from pathlib import Path
 import sys
@@ -29,5 +30,5 @@ PY
  fi
  sleep 2
 done
-echo 'Health check failed; prior image digest recorded in .previous-image' >&2
+echo 'Health/readiness check failed; prior image digest recorded in .previous-image. V3 privacy migrations require a compatibility review before image rollback' >&2
 exit 1

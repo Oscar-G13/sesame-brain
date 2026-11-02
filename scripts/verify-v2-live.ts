@@ -24,7 +24,7 @@ let server:ReturnType<typeof app.listen>|undefined,client:Client|undefined;
 const record=(name:string,data:Record<string,unknown>={})=>{console.log(JSON.stringify({check:name,...data}));(evidence.modelTests as unknown[]).push({check:name,...data});};
 try{
  await migrate();evidence.models=await validateModels();assert.ok(aiConfig.ready);
- await pool.query("INSERT INTO users(id,email,password_hash) VALUES($1,$2,'live-fixture-no-login')",[user,user+'@verify.invalid']);
+ await pool.query("INSERT INTO users(id,email,password_hash,ai_access_state) VALUES($1,$2,'live-fixture-no-login','approved')",[user,user+'@verify.invalid']);
  await pool.query('INSERT INTO brains(id,user_id) VALUES($1,$2)',[brain,user]);
  await pool.query("INSERT INTO oauth_clients(client_id,kind,metadata) VALUES($1,'dcr','{}')",[clientId]);
  await pool.query("INSERT INTO grants(id,user_id,brain_id,client_id,agent_label,scope,resource) VALUES($1,$2,$3,$4,'maya','brain:read brain:write',$5)",[grant,user,brain,clientId,config.resource]);
@@ -33,7 +33,7 @@ try{
  server=app.listen(0,'0.0.0.0');await once(server,'listening');const address=server.address();assert.ok(address&&typeof address!=='string');
  client=new Client({name:'Brain v2 live verification',version:'2.0.0'});await client.connect(new StreamableHTTPClientTransport(new URL('http://127.0.0.1:'+address.port+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token}}}));
  async function call(name:string,args:Record<string,unknown>={}){const start=Date.now();const result=await client!.callTool({name,arguments:args},{timeout:45000});assert.ok(!result.isError,name+' failed');const part=result.content.find(c=>c.type==='text');assert.ok(part&&part.type==='text');const data=JSON.parse(part.text);assert.equal(typeof data.trailer,'string');return {data,ms:Date.now()-start};}
- const tools=await client.listTools();assert.equal(tools.tools.length,20);record('MCP discovery',{tools:tools.tools.length});
+ const tools=await client.listTools();assert.equal(tools.tools.length,28);record('MCP discovery',{tools:tools.tools.length});
  await call('whoami');
  const quick=await call('think',{text:'What name do you remember for me? Answer in one short sentence.',depth:'quick',spoken:true});assert.match(quick.data.answer,/Test Reader/i);assert.equal(quick.data.job_id,null);assert.ok(quick.ms<aiConfig.quickTimeout+1500);record('live quick reasoning',{latency_ms:quick.ms});
  const job=await call('do',{task:'Write a two-sentence welcome for someone starting a fresh shared memory. No research needed.',deliver:'brain'});assert.ok(job.data.job_id);assert.ok(job.ms<1000);record('immediate job acknowledgement',{latency_ms:job.ms});

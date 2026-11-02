@@ -27,7 +27,7 @@ mcpRouter.all('/mcp',bearerAuth,async(req,res)=>{
    server.registerTool(name,{
     description:definition.description,
     inputSchema:definition.inputSchema,
-    annotations:{readOnlyHint:['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','job_status','jobs_list'].includes(name),destructiveHint:['forget','remember','mark_notes_read','save_snapshot'].includes(name),openWorldHint:['think','do'].includes(name)}
+    annotations:{readOnlyHint:['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','job_status','jobs_list','projects_list','project_brief','project_history','memory_history'].includes(name),destructiveHint:['forget','remember','mark_notes_read','save_snapshot'].includes(name),openWorldHint:['think','do'].includes(name)}
    },async (input:unknown)=>{
     try {
      const data=await executeBrainTool(auth,name,input);

@@ -1,4 +1,5 @@
 import express from 'express';
+import {getReadiness} from './ops/readiness.js';
 import cookieParser from 'cookie-parser';
 import { resolve } from 'node:path';
 import { config } from './config.js';
@@ -26,6 +27,7 @@ app.use(express.json({limit:'1mb'}));
 app.use(cookieParser());
 app.use('/public', express.static(resolve('src/web/public'), {maxAge:3600000,etag:true}));
 app.get('/health', async (_req,res) => { try { await pool.query('SELECT 1');res.json({ok:true,db:'ok',version:config.version,uptime:Math.floor(process.uptime())}); } catch {res.status(503).json({ok:false,db:'unavailable',version:config.version,uptime:Math.floor(process.uptime())});}});
+app.get('/ready',async(_req,res)=>{const state=await getReadiness();res.set('Cache-Control','no-store');res.status(state.ok?200:503).json(state);});
 app.use(sessions);
 app.use((req,res,next) => { res.locals.config=config; res.locals.user=req.user; res.locals.csrfToken=csrfToken(req); res.locals.csrf=res.locals.csrfToken; next(); });
 app.use(oauthRouter);
