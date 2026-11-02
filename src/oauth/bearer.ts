@@ -10,7 +10,7 @@ function reject(res:Response){res.set('WWW-Authenticate',bearerChallenge).status
 export async function authenticateToken(token:string):Promise<AuthContext|null>{if(!/^[A-Za-z0-9_-]{43}$/.test(token))return null;const tokenHash=hashToken(token);const result=await pool.query('SELECT g.*,a.token_hash,a.expires_at FROM access_tokens a JOIN grants g ON g.id=a.grant_id JOIN users u ON u.id=g.user_id WHERE a.token_hash=$1 AND a.expires_at>now() AND g.revoked_at IS NULL AND u.deleted_at IS NULL',[tokenHash]);const row=result.rows[0];if(!row||!validAudience(row.resource))return null;return{user_id:row.user_id,brain_id:row.brain_id,agent_label:row.agent_label,client_id:row.client_id,scopes:String(row.scope).split(/\s+/),grant_id:row.id,token_hash:tokenHash};}
 export async function bearerAuth(req:Request,res:Response,next:NextFunction){
  try{
- const header=req.get('authorization');if(!header||!/^Bearer [A-Za-z0-9_-]{43}$/.test(header)){reject(res);return;}
+ const header=req.get('authorization');if(!header||!/^Bearer [A-Za-z0-9_-]{43}$/i.test(header)){reject(res);return;}
  const tokenHash=hashToken(header.slice(7));
  const auth=await authenticateToken(header.slice(7));if(!auth){reject(res);return;}
  const limit=consumeRate('mcp:'+tokenHash,120,60000);if(!limit.allowed){res.set('Retry-After',String(limit.retry)).status(429).json({error:'rate_limit_exceeded'});return;}
