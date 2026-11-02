@@ -1,0 +1,91 @@
+{
+  "target": "isolated test database and local container only",
+  "production_mutations": 0,
+  "paid_calls": 0,
+  "mocked_model_calls": 2,
+  "captures": [
+    {
+      "name": "onboarding-pending-desktop",
+      "width": 1440
+    },
+    {
+      "name": "onboarding-pending-mobile",
+      "width": 390
+    },
+    {
+      "name": "fact-evidence-correction-mobile",
+      "width": 390
+    },
+    {
+      "name": "actual-think-answer-desktop",
+      "width": 1440
+    },
+    {
+      "name": "project-proposed-change-desktop",
+      "width": 1440
+    },
+    {
+      "name": "project-live-canvas-desktop",
+      "width": 1440
+    },
+    {
+      "name": "project-live-canvas-mobile",
+      "width": 390
+    },
+    {
+      "name": "project-dense-desktop",
+      "width": 1440
+    },
+    {
+      "name": "project-dense-mobile",
+      "width": 390
+    },
+    {
+      "name": "actual-schema-insights-mobile",
+      "width": 390
+    },
+    {
+      "name": "actual-schema-reflection-desktop",
+      "width": 1440
+    },
+    {
+      "name": "actual-schema-reflection-mobile",
+      "width": 390
+    },
+    {
+      "name": "live-job-completion-mobile",
+      "width": 390
+    },
+    {
+      "name": "outcome-home-desktop",
+      "width": 1440
+    },
+    {
+      "name": "outcome-home-mobile",
+      "width": 390
+    },
+    {
+      "name": "outcome-home-small-mobile",
+      "width": 360
+    }
+  ],
+  "checks": [
+    "actual authenticated Think POST uses real brain_session",
+    "fact correction and history",
+    "project CRUD via forms",
+    "real dependency arrows",
+    "16 service-created items across all six types and 21 dependency links",
+    "dense board type/review filters",
+    "assistant proposal preserves confirmed value",
+    "5s polling defers for dirty draft",
+    "owner approval flags dependent task",
+    "real retrieval receipts update without content version change",
+    "actual generated nightly schema rendered as evidence and uncertainty",
+    "queued job completion automatically refreshes detail",
+    "native mobile menu",
+    "visible project metadata at least 12px",
+    "no horizontal overflow at 1440/390/360",
+    "no browser exceptions"
+  ],
+  "errors": []
+}

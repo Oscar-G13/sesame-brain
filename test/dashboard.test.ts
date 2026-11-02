@@ -44,7 +44,7 @@ test('dashboard requires login and the default form returns to the dashboard',as
  const login=await new Browser().get('/login');assert.ok((await login.text()).includes('name="next" value="/dashboard"'));
 });
 test('every dashboard collection and detail is scoped to the chosen owned brain',async()=>{
- const overview=await browser.get('/dashboard?brain='+a);assert.equal(overview.status,200);const text=await overview.text();assert.ok(text.includes('A-private-memory'));assert.ok(!text.includes('B-private-memory'));assert.ok(!text.includes('FOREIGN-PRIVATE'));assert.ok(text.includes('Your memory, connected.'));
+ const overview=await browser.get('/dashboard?brain='+a);assert.equal(overview.status,200);const text=await overview.text();assert.ok(text.includes('A-private-memory'));assert.ok(!text.includes('B-private-memory'));assert.ok(!text.includes('FOREIGN-PRIVATE'));assert.ok(text.includes('Your living projects.'));
  for(const path of ['/dashboard','/dashboard/memory','/dashboard/jobs','/dashboard/insights','/dashboard/usage','/dashboard/think','/dashboard/capture','/dashboard/jobs/new','/dashboard/clear','/dashboard/files'])assert.equal((await browser.get(path+'?brain='+foreign)).status,404,path);
  assert.equal((await browser.get('/dashboard/memory/notes/'+noteB+'?brain='+a)).status,404);assert.equal((await browser.get('/dashboard/memory/notes/'+noteForeign+'?brain='+a)).status,404);
  assert.equal((await browser.get('/dashboard/jobs/'+jobB+'?brain='+a)).status,404);assert.equal((await browser.get('/dashboard/jobs/'+jobForeign+'?brain='+a)).status,404);
@@ -90,5 +90,5 @@ test('typed content reset clears selected brain content and workspaces while pre
  for(const table of ['notes','facts','snapshots','handoffs','activity','jobs','brain_sessions','usage','usage_reservations','nightly_runs'])assert.equal((await pool.query('SELECT count(*)::int AS n FROM '+table+' WHERE user_id=$1 AND brain_id=$2',[uid,a])).rows[0].n,0,table);
  await assert.rejects(access(directory));assert.equal((await pool.query('SELECT password_hash FROM users WHERE id=$1',[uid])).rows[0].password_hash,'preserved-fixture-hash');assert.equal((await pool.query('SELECT revoked_at FROM grants WHERE id=$1',[grant])).rows[0].revoked_at,null);assert.equal((await browser.get('/account')).status,200);
  assert.equal((await pool.query('SELECT 1 FROM notes WHERE id=ANY($1::uuid[])',[[noteB,noteForeign]])).rowCount,2,'Other brain and user data survives');
- const empty=await browser.get('/dashboard?brain='+a);assert.equal(empty.status,200);const html=await empty.text();assert.ok(html.includes('Room for your next idea.'));assert.ok(html.includes('Connected'));
+ const empty=await browser.get('/dashboard?brain='+a);assert.equal(empty.status,200);const html=await empty.text();assert.ok(html.includes('What are we moving forward?'));assert.ok(html.includes('Connected'));
 });

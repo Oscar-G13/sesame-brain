@@ -29,7 +29,7 @@ webRouter.get('/', (_req, res) => page(res, 'home', 'A shared brain for your ass
 webRouter.get('/docs', (_req, res) => page(res, 'docs', 'Connect your assistants'));
 webRouter.get('/privacy', (_req, res) => page(res, 'privacy', 'Your data, under your control'));
 webRouter.get('/signup', (req, res) => page(res, 'auth', 'Create your brain', { mode: 'signup', next: safeNext(req.query.next), email: '' }));
-webRouter.get('/login', (req, res) => page(res, 'auth', 'Welcome back', { mode: 'login', next: safeNext(req.query.next), email: '' }));
+webRouter.get('/login', (req, res) => page(res, 'auth', 'Welcome back', { mode: 'login', next: safeNext(req.query.next), email: '', notice:req.query.recovered==='1'?'Your password has been reset. Sign in with your new password.':undefined }));
 
 // A fixed real hash makes failed unknown-account verification take the same expensive path.
 const dummyHash = argon2.hash(randomBytes(32), { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
