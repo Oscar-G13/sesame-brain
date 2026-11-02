@@ -8,7 +8,7 @@ const resource = base+'/mcp';
 const redirectUri = process.env.E2E_REDIRECT_URI ?? base+'/e2e/callback';
 const registrationMethod=process.env.E2E_REGISTRATION_METHOD??'both';
 assert.ok(['both','dcr','cimd'].includes(registrationMethod),'Choose E2E_REGISTRATION_METHOD=both,dcr,or cimd');
-const expectedTools = ['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','leave_note','mark_notes_read','handoff','accept_handoff','complete_handoff','remember','forget','save_snapshot','think','do','job_status','jobs_list','end_session','memory_history','projects_list','project_create','project_brief','project_add_item','project_update_item','project_update','project_history'];
+const expectedTools = ['whoami','inbox','read_notes','recall','list_snapshots','get_snapshot','activity','leave_note','mark_notes_read','handoff','accept_handoff','complete_handoff','remember','forget','save_snapshot','think','do','job_status','jobs_list','end_session','memory_history','projects_list','project_create','project_brief','project_add_item','project_update_item','project_update','project_history','resume'];
 type Tokens = {access_token:string;refresh_token:string;token_type:string;expires_in:number;scope:string};
 class Browser {
  cookies = new Map<string,string>();
@@ -93,7 +93,7 @@ async function scenario(kind:'DCR'|'CIMD') {
   } else {assert.equal((await fetch(clientId)).status,200,'Enable E2E_ENABLED for test metadata');}
   const mayaTokens=await authorize(browser,clientId,'maya'),charlieTokens=await authorize(browser,clientId,'charlie');
   const maya=await connect(mayaTokens),charlie=await connect(charlieTokens);clients.push(maya,charlie);
-  const listing=await maya.listTools();assert.deepEqual(listing.tools.map(t=>t.name).sort(),expectedTools.sort());console.log(`PASS ${kind} OAuth discovery, registration, login, PKCE, consent and all 28 tools`);
+  const listing=await maya.listTools();assert.deepEqual(listing.tools.map(t=>t.name).sort(),expectedTools.sort());console.log(`PASS ${kind} OAuth discovery, registration, login, PKCE, consent and all 29 tools`);
   const identity=await tool(maya,'whoami');assert.equal(identity.agent,'maya');assert.ok(identity.connected_agents.some((a:{agent:string})=>a.agent==='charlie'));
   await tool(maya,'remember',{key:'e2e-train',value:'7:40 train',tags:['verification']});
   const found=await tool<any[]>(charlie,'recall',{query:'train'});assert.ok(found.some(f=>f.key==='e2e-train'));
@@ -127,6 +127,7 @@ async function scenario(kind:'DCR'|'CIMD') {
   assert.ok((await tool(charlie,'projects_list')).projects.some((value:any)=>value.id===project.id));
   for(const client of [maya,charlie])await tool(client,'project_brief',{project_id:project.id});
   const received=await tool(maya,'project_brief',{project_id:project.id});for(const agent of ['maya','charlie'])assert.ok(received.receipts.some((receipt:any)=>receipt.agent_label===agent&&receipt.last_seen_version===received.project.version));
+  const resumed=await tool(maya,'resume');assert.equal(resumed.project.id,project.id);assert.equal(resumed.project.version,received.project.version);
   console.log('PASS '+kind+' pending hosted-AI refusals, free projects, attributed history and two-assistant retrieval receipts');
 
   const refreshed=await json<Tokens>(await fetch(base+'/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',client_id:clientId,refresh_token:mayaTokens.refresh_token,resource})}));
