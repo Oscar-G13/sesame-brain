@@ -1,5 +1,21 @@
 # Brain verification
 
+## 3.1.1 — completion audit fixes, live November 2, 2026
+
+Production revision 82d009143b47 is live. The final full suite passed **183/183**, with zero skips, strict TypeScript and build success. [Release CI](https://github.com/Oscar-G13/sesame-brain/actions/runs/41541324924) passed migrations, tests and both images.
+
+The completion audit found and fixed five concrete gaps: missing overnight summaries in continuity, early retrieval counts on failed calls, inner project drafts lost during live updates, aggregate reasoning context exceeding its configured budget, and partial timeout answers lost when the queue was full. Source receipt limits now omit excess records instead of silently dropping their references. All 29 tools have formal input/output documentation; 59 JSON blocks and shared references were validated.
+
+Public 3.1.1 acceptance passed unchanged same-connection recovery, a failed first call recording zero deliveries, a successful resume recording exactly one, a seeded authorized overnight review in first-touch/resume, current confirmed corrections, refresh and idle recovery. Public desktop/mobile checks passed; the served app.js hash matches the fixed source. Actual browser regression also preserved correction/review drafts and focus, retained the stale-version guard, verified a 409 response preserving the submitted draft, and exercised explicit discard. These patch checks made zero provider calls.
+
+The owner confirmed the same-voice iPhone test on 3.1.0: “It recalls $600 and choosing where to go.” Saved-record metadata independently shows new Brain sessions, a project, a note and snapshots. This is user-reported native acceptance with activity corroboration, not direct device inspection. The same core continuity path was regression-tested publicly on 3.1.1.
+
+Hash-only preservation passed across 26 tables before and after final public cleanup, including the newly saved native-test records. Both synthetic public accounts were deleted; the temporary test database was removed. App, database and sandbox are healthy. Provider, workers and scheduler are ready. Overall /ready remains 503 only for the existing host storage advisory; no shared cleanup was performed.
+
+Backup work remains explicitly deferred: active Brain backup cron entries are zero, watchdog entries are one, and no new backups or offsite resources were created. Optional SMTP, an OpenAI auditor and the optional reference-HTML renderer remain conditional features, not required deployment gates.
+
+Receipts: evidence/v311-tests.json, v311-public-continuity.json, v311-public-browser.json, v311-canvas-draft-browser.json, v311-preservation-after-deploy.json, v311-preservation.json, v311-secret-scan.json and v311-deployment.json. Native acceptance: evidence/v31-native-sesame.json. Requirement-by-requirement completion mapping: [COMPLETION-AUDIT.md](COMPLETION-AUDIT.md).
+
 ## 3.1 — continuity between calls, live November 2, 2026
 
 Production revision b1b0906c488c, version 3.1.0, is live at https://brain.arxsable.ai. The primary scenario is one existing Sesame connection across separate calls or chats with the same voice. The owner clarified that context loss between conversations, rather than changing assistant identities, is the problem to solve.

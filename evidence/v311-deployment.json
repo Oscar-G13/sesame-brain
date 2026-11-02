@@ -1,0 +1,129 @@
+{
+  "at": "2026-11-02T23:00:13.831920+00:00",
+  "version": "3.1.1",
+  "revision": "82d009143b47f3538d5186602c3c78b513c54509",
+  "host": "hermes",
+  "cwd": "/srv/sesame-brain",
+  "compose_project": "sesame-brain",
+  "public_health": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "db": "ok",
+      "version": "3.1.1",
+      "uptime": 114
+    }
+  },
+  "readiness": {
+    "status": 503,
+    "body": {
+      "ok": false,
+      "db": true,
+      "provider": {
+        "configured": true,
+        "ok": true
+      },
+      "sandbox": {
+        "configured": true,
+        "ok": true
+      },
+      "jobs": {
+        "ok": true
+      },
+      "storage": {
+        "ok": false
+      },
+      "nightly": {
+        "ok": true
+      },
+      "backup": {
+        "configured": false,
+        "deferred": true,
+        "ok": true
+      },
+      "restore": {
+        "configured": false,
+        "deferred": true,
+        "ok": true
+      },
+      "checked_at": "2026-11-02T23:00:01.297Z",
+      "issues": [
+        "Host storage is above the warning threshold. The operator should inspect capacity."
+      ]
+    }
+  },
+  "services": [
+    {
+      "name": "sesame-brain-app-1",
+      "image": "sesame-brain:82d009143b47",
+      "image_digest": "sha256:43ec3f9c325a2cf17fcdcda718f9910c3b8f06512518beee395540ba192fc0fd",
+      "status": "running",
+      "health": "healthy",
+      "started_at": "2026-11-02T22:58:19.175155539Z",
+      "ports": {
+        "3000/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "3360"
+          }
+        ]
+      }
+    },
+    {
+      "name": "sesame-brain-db-1",
+      "image": "postgres:16-bookworm",
+      "image_digest": "sha256:e8a07d2c7579b038938cdba6c539e580e5001caf9ea203d397b5cc83e76bd938",
+      "status": "running",
+      "health": "healthy",
+      "started_at": "2026-11-02T07:00:56.551792301Z",
+      "ports": {
+        "5432/tcp": null
+      }
+    },
+    {
+      "name": "sesame-brain-sandbox-1",
+      "image": "sesame-brain-sandbox:82d009143b47",
+      "image_digest": "sha256:7e2b639b8ff474248bc83a6f0f38da6d651552bb7cefdea4123825e2efe73d81",
+      "status": "running",
+      "health": "healthy",
+      "started_at": "2026-11-02T22:58:18.670675441Z",
+      "ports": {}
+    }
+  ],
+  "migrations": [
+    "0001_init.sql",
+    "0002_v2.sql",
+    "0003_browser_sessions.sql",
+    "0004_provider_budget.sql",
+    "0005_memory_evidence.sql",
+    "0006_access_recovery.sql",
+    "0007_living_projects.sql",
+    "0008_project_proposals.sql",
+    "0009_content_quota.sql",
+    "0010_project_retry_fingerprints.sql",
+    "0011_session_continuity.sql"
+  ],
+  "storage": {
+    "available_bytes": 116172992512,
+    "total_bytes": 972760846336,
+    "warning_acknowledged": true,
+    "cleanup_performed": false
+  },
+  "backups_created": false,
+  "offsite_resources_created": false,
+  "active_brain_backup_entries": 0,
+  "active_brain_watchdog_entries": 1,
+  "temporary_test_database_removed": true,
+  "environment_mode": "0o600",
+  "native_acceptance": {
+    "passed": true,
+    "method": "user-reported same-voice iPhone call A to B acceptance on 3.1.0",
+    "receipt": "v31-native-sesame.json",
+    "direct_device_inspection": false,
+    "public_protocol_regression_passed_on": "3.1.1"
+  },
+  "release_ci": {
+    "url": "https://github.com/Oscar-G13/sesame-brain/actions/runs/41541324924",
+    "conclusion": "success"
+  }
+}

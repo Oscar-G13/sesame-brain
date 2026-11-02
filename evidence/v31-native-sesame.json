@@ -11,5 +11,12 @@
   "user_report": "It recalls $600 and choosing where to go",
   "passed": true,
   "direct_device_inspection": false,
-  "transcript_or_native_memory_sync_claimed": false
+  "transcript_or_native_memory_sync_claimed": false,
+  "server_activity_corroboration": {
+    "method": "Aggregate saved-record counts between the preserved 3.1 baseline and pre-3.1.1 checkpoint; no raw content inspected",
+    "new_brain_sessions": 2,
+    "new_projects": 1,
+    "new_notes": 1,
+    "new_snapshots": 2
+  }
 }

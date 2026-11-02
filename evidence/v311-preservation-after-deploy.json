@@ -1,0 +1,158 @@
+{
+  "at": "2026-11-02T22:58:23.927Z",
+  "backups_created": false,
+  "content_saved": false,
+  "method": "Repeatable-read, read-only original-column per-row fingerprints; every baseline row must remain unchanged. New rows and columns allowed. Only brains.memory_version excluded.",
+  "volatile_counts_before": {
+    "open_sessions": 0,
+    "idle_sessions": 0,
+    "open_meaningful_sessions": 0,
+    "idle_rollup_candidates": 0,
+    "claimed_rollups": 0,
+    "active_jobs": 0,
+    "running_nightlies": 0
+  },
+  "volatile_counts_after": {
+    "open_sessions": 0,
+    "idle_sessions": 0,
+    "open_meaningful_sessions": 0,
+    "idle_rollup_candidates": 0,
+    "claimed_rollups": 0,
+    "active_jobs": 0,
+    "running_nightlies": 0
+  },
+  "tables": {
+    "access_tokens": {
+      "before": 6,
+      "after": 6,
+      "missing_or_changed": 0
+    },
+    "account_recovery_codes": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "activity": {
+      "before": 7,
+      "after": 7,
+      "missing_or_changed": 0
+    },
+    "ai_access_audit": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "auth_codes": {
+      "before": 2,
+      "after": 2,
+      "missing_or_changed": 0
+    },
+    "brain_sessions": {
+      "before": 2,
+      "after": 2,
+      "missing_or_changed": 0
+    },
+    "brains": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "fact_revisions": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "facts": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "grants": {
+      "before": 2,
+      "after": 2,
+      "missing_or_changed": 0
+    },
+    "handoffs": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "jobs": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "nightly_runs": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "notes": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "oauth_clients": {
+      "before": 11,
+      "after": 11,
+      "missing_or_changed": 0
+    },
+    "project_events": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "project_items": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "project_links": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "project_receipts": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "projects": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "refresh_tokens": {
+      "before": 6,
+      "after": 6,
+      "missing_or_changed": 0
+    },
+    "sessions": {
+      "before": 2,
+      "after": 2,
+      "missing_or_changed": 0
+    },
+    "snapshots": {
+      "before": 3,
+      "after": 3,
+      "missing_or_changed": 0
+    },
+    "usage": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    },
+    "usage_reservations": {
+      "before": 0,
+      "after": 0,
+      "missing_or_changed": 0
+    },
+    "users": {
+      "before": 1,
+      "after": 1,
+      "missing_or_changed": 0
+    }
+  },
+  "new_tables": {},
+  "passed": true
+}

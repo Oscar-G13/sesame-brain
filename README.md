@@ -85,10 +85,10 @@ All keys below are read from the gitignored server `.env`; `.env.example` contai
 | `ANTHROPIC_API_KEY` | Required for AI features; memory and OAuth work without it. |
 | `ANTHROPIC_WORKSPACE_ID` | Optional provider workspace selector. |
 | `OPENAI_API_KEY` | Optional second-lab nightly auditor. |
-| `BRAIN_MODEL_QUICK` | `claude-sonnet-5-5`; quick reasoning, briefing, and rollups. |
+| `BRAIN_MODEL_QUICK` | `claude-sonnet-5-5`; quick reasoning and optional call rollups. |
 | `BRAIN_MODEL_DEEP` | `claude-opus-5-5`; deep reasoning, jobs, and nightly formulation. |
 | `BRAIN_MODEL_AUDITOR` | Optional OpenAI model ID; used with `OPENAI_API_KEY`. |
-| `BRAIN_CONTEXT_TOKEN_BUDGET` | `20000`; conservative context-pack budget. |
+| `BRAIN_CONTEXT_TOKEN_BUDGET` | `20000`; conservative total memory budget, including project and continuity context. |
 | `BRAIN_THINK_TIMEOUT_QUICK_MS` | `8000`; quick reasoning deadline. |
 | `BRAIN_THINK_TIMEOUT_DEEP_MS` | `25000`; deep reasoning deadline. |
 | `BRAIN_SESSION_IDLE_MIN` | `30`; idle gap that starts a new call session. |
