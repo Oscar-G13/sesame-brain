@@ -94,6 +94,8 @@ test('Unix sandbox executes with empty inherited secrets, denies ordinary outsid
  const result=await callSandbox("console.log(JSON.stringify({secret:process.env.ANTHROPIC_API_KEY??null,db:process.env.DATABASE_URL??null})); try { (await import('node:fs/promises')).readFile('/etc/passwd').catch(e=>console.log(e.code)); }catch(e){console.log(e.code)}; try { (await import('node:child_process')).spawnSync('id'); }catch(e){console.log(e.code)}",new AbortController().signal)as any;
  assert.equal(result.exit_code,0);assert.ok(result.output.includes('"secret":null'));assert.ok(result.output.includes('"db":null'));assert.ok(result.output.includes('ERR_ACCESS_DENIED'));
  const oversized=await socketRequest("console.log('x'.repeat(50000))");assert.equal(oversized.status,200);assert.equal(oversized.body.truncated,true);assert.ok(Buffer.byteLength(oversized.body.output)<=32000);
+ const permissions=await socketRequest("import fs from 'node:fs';fs.mkdirSync('locked');fs.writeFileSync('locked/data','test');fs.chmodSync('locked',0);console.log('done');");assert.equal(permissions.status,200);
+ for(let i=0;i<5;i++)assert.equal((await socketRequest("console.log('next')")).status,200,'sequential calls must not race cleanup');
  const first=socketRequest("setTimeout(()=>console.log('done'),200)");await delay(40);const second=await socketRequest("console.log('second')");assert.equal(second.status,429);assert.equal((await first).status,200);
  }finally{runner.kill('SIGTERM');await once(runner,'close');}
 });

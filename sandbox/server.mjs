@@ -1,15 +1,21 @@
 import http from 'node:http';
-import {mkdtemp,writeFile,rm,lstat,unlink,chmod} from 'node:fs/promises';
+import {mkdtemp,writeFile,rm,lstat,unlink,chmod,readdir} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 const socket=process.env.BRAIN_SANDBOX_SOCKET||'/run/brain-sandbox/runner.sock';
 if(!socket.startsWith('/')||socket.includes('\0'))throw new Error('Invalid socket path');
 let busy=false,activeKill;
+async function cleanup(dir){
+ if(!dir)return;
+ const pending=[dir];
+ while(pending.length){const path=pending.pop();const stat=await lstat(path);if(!stat.isDirectory()||stat.isSymbolicLink())continue;await chmod(path,0o700);for(const entry of await readdir(path,{withFileTypes:true}))if(entry.isDirectory()&&!entry.isSymbolicLink())pending.push(path+'/'+entry.name);}
+ await rm(dir,{recursive:true,force:true});
+}
 const server=http.createServer(async(req,res)=>{
  res.setHeader('content-type','application/json');
  if(req.method==='GET'&&req.url==='/health'){res.end('{"ok":true}');return;}
  if(req.method!=='POST'||req.url!=='/run'){res.writeHead(404).end('{"error":"Not found"}');return;}
  if(busy){res.writeHead(429).end('{"error":"Execution busy"}');return;}
- busy=true;let dir,child,bodyTimer;
+ busy=true;let dir,child,bodyTimer,resultBody='{"error":"Execution failed"}',status=200;
  const kill=()=>{if(child?.pid)try{process.kill(-child.pid,'SIGKILL');}catch{}};
  activeKill=kill;
  req.on('aborted',kill);res.on('close',()=>{if(!res.writableEnded)kill();});
@@ -31,9 +37,14 @@ const server=http.createServer(async(req,res)=>{
    child.on('error',()=>finish({exit_code:null,error:'Execution unavailable'}));
    child.on('close',exitCode=>finish({exit_code:exitCode,timed_out:timedOut,truncated,output:Buffer.concat(output).toString('utf8').replace(/\uFFFD+$/u,'')}));
   });
-  if(!res.destroyed)res.end(JSON.stringify(result));
- }catch{if(!res.headersSent)res.writeHead(400);if(!res.destroyed)res.end('{"error":"Execution failed"}');}
- finally{clearTimeout(bodyTimer);kill();if(dir)await rm(dir,{recursive:true,force:true});busy=false;activeKill=undefined;}
+  resultBody=JSON.stringify(result);
+ }catch{status=400;}
+ finally{
+  clearTimeout(bodyTimer);kill();
+  try{await cleanup(dir);}catch{status=500;resultBody='{"error":"Execution cleanup failed"}';}
+  finally{busy=false;activeKill=undefined;}
+  if(!res.destroyed){res.writeHead(status);res.end(resultBody);}
+ }
 });
 server.headersTimeout=5000;server.requestTimeout=5000;server.keepAliveTimeout=1000;server.maxConnections=16;
 try{const stat=await lstat(socket);if(!stat.isSocket())throw new Error('Socket path occupied');await unlink(socket);}catch(error){if(error.code!=='ENOENT')throw error;}

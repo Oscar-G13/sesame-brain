@@ -1,0 +1,86 @@
+ Container sesame-brain-testdb-1 Running 
+ Container sesame-brain-testdb-1 Waiting 
+ Container sesame-brain-testdb-1 Healthy 
+ Container sesame-brain-dev-run-c49400654401 Creating 
+ Container sesame-brain-dev-run-c49400654401 Created 
+TAP version 13
+# Subtest: provider SSE parser handles arbitrary CRLF/UTF-8 boundaries, cumulative cached usage and streamed tool JSON
+ok 1 - provider SSE parser handles arbitrary CRLF/UTF-8 boundaries, cumulative cached usage and streamed tool JSON
+  ---
+  duration_ms: 18.847029
+  type: 'test'
+  ...
+# Subtest: aborting a pending provider stream returns partial text and known usage without waiting for a further chunk
+ok 2 - aborting a pending provider stream returns partial text and known usage without waiting for a further chunk
+  ---
+  duration_ms: 5.952339
+  type: 'test'
+  ...
+# Subtest: provider fetch is mocked: API requests never forward credentials in JSON and forbid redirects
+ok 3 - provider fetch is mocked: API requests never forward credentials in JSON and forbid redirects
+  ---
+  duration_ms: 0.766155
+  type: 'test'
+  ...
+# Subtest: global daily budget is atomic across brains and survives user-content purge
+ok 4 - global daily budget is atomic across brains and survives user-content purge
+  ---
+  duration_ms: 17.253714
+  type: 'test'
+  ...
+# Subtest: settlement is idempotent, epoch-safe and charges aggregate cost after purge without restoring personal usage
+ok 5 - settlement is idempotent, epoch-safe and charges aggregate cost after purge without restoring personal usage
+  ---
+  duration_ms: 5.206171
+  type: 'test'
+  ...
+# Subtest: usage days use Los Angeles rather than UTC midnight
+ok 6 - usage days use Los Angeles rather than UTC midnight
+  ---
+  duration_ms: 7.961811
+  type: 'test'
+  ...
+# Subtest: model tools independently enforce scope, tenant, live grant and private-note visibility
+ok 7 - model tools independently enforce scope, tenant, live grant and private-note visibility
+  ---
+  duration_ms: 8.84186
+  type: 'test'
+  ...
+# Subtest: URL fetch blocks private/mixed DNS, pins public address, refuses redirects and caps streamed bodies
+ok 8 - URL fetch blocks private/mixed DNS, pins public address, refuses redirects and caps streamed bodies
+  ---
+  duration_ms: 2.922673
+  type: 'test'
+  ...
+# Subtest: URL absolute deadline rejects slow DNS before making any request
+ok 9 - URL absolute deadline rejects slow DNS before making any request
+  ---
+  duration_ms: 41.022923
+  type: 'test'
+  ...
+# Subtest: artifact writes reject traversal, symlinks, overlong UTF-8 data and enforce quota while allowing replacement
+ok 10 - artifact writes reject traversal, symlinks, overlong UTF-8 data and enforce quota while allowing replacement
+  ---
+  duration_ms: 56.478288
+  type: 'test'
+  ...
+# Subtest: Unix sandbox executes with empty inherited secrets, denies ordinary outside-file/child access, bounds output and serializes jobs
+ok 11 - Unix sandbox executes with empty inherited secrets, denies ordinary outside-file/child access, bounds output and serializes jobs
+  ---
+  duration_ms: 477.66408
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 906.748996
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
