@@ -95,3 +95,9 @@ test('withdrawn source access cannot be recovered from an older session bookmark
  const resumed=await call(a,'resume'),text=JSON.stringify(resumed);for(const marker of [project.id,'WITHDRAWN-PRIVATE-CONTEXT','WITHDRAWN-PRIVATE-RULE'])assert.ok(!text.includes(marker),'Current ACL must override historical session receipts.');
  assert.equal(providerCalls,0);
 });
+
+test('first explicit resume records one delivered retrieval rather than a hidden first-touch duplicate',async()=>{
+ const f=await fixture();await createProject(f.owner,{title:'One retrieval',goal:'Resume this saved project once.',allowed_agents:['maya']});
+ const a=await connect(f.token),resumed=await call(a,'resume');assert.equal(resumed.resume_count,1);assert.equal(resumed.saved_context,true);
+ const row=(await pool.query('SELECT resume_count FROM brain_sessions WHERE user_id=$1 AND brain_id=$2 AND closed_at IS NULL',[f.user,f.brain])).rows[0];assert.equal(Number(row.resume_count),1);assert.equal(providerCalls,0);
+});

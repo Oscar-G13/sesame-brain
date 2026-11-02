@@ -1,0 +1,118 @@
+ Container sesame-brain-testdb-1 Running 
+ Container sesame-brain-testdb-1 Waiting 
+ Container sesame-brain-testdb-1 Healthy 
+ Container sesame-brain-dev-run-c6cc06830a86 Creating 
+ Container sesame-brain-dev-run-c6cc06830a86 Created 
+TAP version 13
+# {"time":"2026-11-02T22:02:25.790Z","method":"POST","path":"/mcp","status":200,"duration_ms":18}
+# {"time":"2026-11-02T22:02:25.801Z","method":"POST","path":"/mcp","status":202,"duration_ms":3}
+# {"time":"2026-11-02T22:02:25.806Z","method":"GET","path":"/mcp","status":405,"duration_ms":2}
+# {"time":"2026-11-02T22:02:25.856Z","method":"POST","path":"/mcp","status":200,"duration_ms":51}
+# {"time":"2026-11-02T22:02:25.876Z","method":"POST","path":"/mcp","status":200,"duration_ms":13}
+# {"time":"2026-11-02T22:02:25.894Z","method":"POST","path":"/mcp","status":200,"duration_ms":16}
+# {"time":"2026-11-02T22:02:25.905Z","method":"POST","path":"/mcp","status":200,"duration_ms":10}
+# {"time":"2026-11-02T22:02:25.910Z","method":"POST","path":"/mcp","status":200,"duration_ms":4}
+# {"time":"2026-11-02T22:02:25.914Z","method":"POST","path":"/mcp","status":200,"duration_ms":1}
+# {"time":"2026-11-02T22:02:25.917Z","method":"POST","path":"/mcp","status":202,"duration_ms":1}
+# {"time":"2026-11-02T22:02:25.919Z","method":"GET","path":"/mcp","status":405,"duration_ms":1}
+# {"time":"2026-11-02T22:02:25.938Z","method":"POST","path":"/mcp","status":200,"duration_ms":20}
+# Subtest: same assistant, same grant and fresh MCP client resume unchanged saved work without an ID or AI
+ok 1 - same assistant, same grant and fresh MCP client resume unchanged saved work without an ID or AI
+  ---
+  duration_ms: 203.339196
+  type: 'test'
+  ...
+# {"time":"2026-11-02T22:02:25.943Z","method":"POST","path":"/mcp","status":200,"duration_ms":1}
+# {"time":"2026-11-02T22:02:25.945Z","method":"POST","path":"/mcp","status":202,"duration_ms":1}
+# {"time":"2026-11-02T22:02:25.947Z","method":"GET","path":"/mcp","status":405,"duration_ms":1}
+# {"time":"2026-11-02T22:02:25.956Z","method":"POST","path":"/mcp","status":200,"duration_ms":10}
+# {"time":"2026-11-02T22:02:25.971Z","method":"POST","path":"/mcp","status":200,"duration_ms":11}
+# {"time":"2026-11-02T22:02:25.987Z","method":"POST","path":"/mcp","status":200,"duration_ms":15}
+# {"time":"2026-11-02T22:02:25.996Z","method":"POST","path":"/mcp","status":200,"duration_ms":8}
+# {"time":"2026-11-02T22:02:26.012Z","method":"POST","path":"/mcp","status":200,"duration_ms":9}
+# {"time":"2026-11-02T22:02:26.021Z","method":"POST","path":"/mcp","status":200,"duration_ms":8}
+# Subtest: explicit resume works inside an active session and latest confirmed corrections take precedence
+ok 2 - explicit resume works inside an active session and latest confirmed corrections take precedence
+  ---
+  duration_ms: 82.070689
+  type: 'test'
+  ...
+# {"time":"2026-11-02T22:02:26.025Z","method":"POST","path":"/mcp","status":200,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.027Z","method":"POST","path":"/mcp","status":202,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.030Z","method":"GET","path":"/mcp","status":405,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.041Z","method":"POST","path":"/mcp","status":200,"duration_ms":12}
+# {"time":"2026-11-02T22:02:26.056Z","method":"POST","path":"/mcp","status":200,"duration_ms":11}
+# {"time":"2026-11-02T22:02:26.068Z","method":"POST","path":"/mcp","status":200,"duration_ms":11}
+# {"time":"2026-11-02T22:02:26.076Z","method":"POST","path":"/mcp","status":200,"duration_ms":7}
+# {"time":"2026-11-02T22:02:26.082Z","method":"POST","path":"/token","status":200,"duration_ms":5,"grant_type":"refresh_token"}
+# {"time":"2026-11-02T22:02:26.084Z","method":"POST","path":"/mcp","status":200,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.086Z","method":"POST","path":"/mcp","status":202,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.087Z","method":"GET","path":"/mcp","status":405,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.104Z","method":"POST","path":"/mcp","status":200,"duration_ms":18}
+# Subtest: token refresh and idle expiry retain same-grant project continuity
+ok 3 - token refresh and idle expiry retain same-grant project continuity
+  ---
+  duration_ms: 82.432286
+  type: 'test'
+  ...
+# {"time":"2026-11-02T22:02:26.107Z","method":"POST","path":"/mcp","status":200,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.109Z","method":"POST","path":"/mcp","status":202,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.110Z","method":"GET","path":"/mcp","status":405,"duration_ms":0}
+# {"time":"2026-11-02T22:02:26.120Z","method":"POST","path":"/mcp","status":200,"duration_ms":10}
+# {"time":"2026-11-02T22:02:26.133Z","method":"POST","path":"/mcp","status":200,"duration_ms":10}
+# {"time":"2026-11-02T22:02:26.146Z","method":"POST","path":"/mcp","status":200,"duration_ms":12}
+# {"time":"2026-11-02T22:02:26.155Z","method":"POST","path":"/mcp","status":200,"duration_ms":8}
+# {"time":"2026-11-02T22:02:26.171Z","method":"POST","path":"/mcp","status":200,"duration_ms":11}
+# {"time":"2026-11-02T22:02:26.175Z","method":"POST","path":"/mcp","status":200,"duration_ms":3}
+# {"time":"2026-11-02T22:02:26.179Z","method":"POST","path":"/mcp","status":200,"duration_ms":3}
+# Subtest: continuity does not reveal restricted or foreign projects, snapshots, or guessed source IDs
+ok 4 - continuity does not reveal restricted or foreign projects, snapshots, or guessed source IDs
+  ---
+  duration_ms: 75.608646
+  type: 'test'
+  ...
+# {"time":"2026-11-02T22:02:26.183Z","method":"POST","path":"/mcp","status":200,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.184Z","method":"POST","path":"/mcp","status":202,"duration_ms":0}
+# {"time":"2026-11-02T22:02:26.186Z","method":"GET","path":"/mcp","status":405,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.195Z","method":"POST","path":"/mcp","status":200,"duration_ms":10}
+# {"time":"2026-11-02T22:02:26.208Z","method":"POST","path":"/mcp","status":200,"duration_ms":10}
+# {"time":"2026-11-02T22:02:26.220Z","method":"POST","path":"/mcp","status":200,"duration_ms":11}
+# {"time":"2026-11-02T22:02:26.227Z","method":"POST","path":"/mcp","status":200,"duration_ms":6}
+# {"time":"2026-11-02T22:02:26.235Z","method":"POST","path":"/mcp","status":200,"duration_ms":7}
+# {"time":"2026-11-02T22:02:26.237Z","method":"POST","path":"/mcp","status":401,"duration_ms":1}
+# Subtest: read-only grants can resume saved context, while revoked grants cannot
+ok 5 - read-only grants can resume saved context, while revoked grants cannot
+  ---
+  duration_ms: 56.877612
+  type: 'test'
+  ...
+# {"time":"2026-11-02T22:02:26.239Z","method":"POST","path":"/mcp","status":200,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.241Z","method":"POST","path":"/mcp","status":202,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.242Z","method":"GET","path":"/mcp","status":405,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.256Z","method":"POST","path":"/mcp","status":200,"duration_ms":11}
+# {"time":"2026-11-02T22:02:26.263Z","method":"POST","path":"/mcp","status":200,"duration_ms":4}
+# Subtest: withdrawn source access cannot be recovered from an older session bookmark or summary
+ok 6 - withdrawn source access cannot be recovered from an older session bookmark or summary
+  ---
+  duration_ms: 26.867473
+  type: 'test'
+  ...
+# {"time":"2026-11-02T22:02:26.268Z","method":"POST","path":"/mcp","status":200,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.270Z","method":"POST","path":"/mcp","status":202,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.271Z","method":"GET","path":"/mcp","status":405,"duration_ms":1}
+# {"time":"2026-11-02T22:02:26.278Z","method":"POST","path":"/mcp","status":200,"duration_ms":7}
+# Subtest: first explicit resume records one delivered retrieval rather than a hidden first-touch duplicate
+ok 7 - first explicit resume records one delivered retrieval rather than a hidden first-touch duplicate
+  ---
+  duration_ms: 15.23756
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1114.413829
