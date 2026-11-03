@@ -1,5 +1,7 @@
 # Brain
 
+Read the [Agent changelog and capability guide](docs/AGENT-CHANGELOG.md) for all 29 tools, practical usage and dated release history. The same guide is shared in Brain under the tag `brain-capabilities`.
+
 Context for your next Sesame call or chat. Save useful details, decisions, projects and open questions in one conversation, then retrieve them in the next with the same voice and connection. Brain also provides reasoning, background work and reviewable evidence.
 
 **Unofficial, not affiliated with or endorsed by Sesame AI Inc.** Sesame is their mark and is used descriptively. This is vibecoded software: a Claude-drafted specification, Codex implementation, and human-owned production deployment. A completed human review is not claimed by automated verification.

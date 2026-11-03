@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "version": "3.1.1",
+  "published": "November 2, 2026 at 5:16:52 PM PST",
+  "created_at": [
+    "2026-11-03T01:17:35.352Z",
+    "2026-11-03T01:17:35.371Z"
+  ],
+  "audience": "all",
+  "visibility": "shared",
+  "connected_labels_verified": 2,
+  "all_connected_labels_can_read_both": true,
+  "notes_marked_read_by_this_operation": false,
+  "provider_calls": 0,
+  "parts": [
+    {
+      "part": 1,
+      "sha256": "d13859a96bc01d8ac51f336a0b85bd72ef9e7f8a5cc199fc9bcabf35981311ae"
+    },
+    {
+      "part": 2,
+      "sha256": "7d783a030a1b8cc91582343966d613910b8a073a26210311885bbedc58ce29eb"
+    }
+  ],
+  "document": "docs/AGENT-CHANGELOG.md",
+  "document_sha256": "f8a5fbaa8f1cbb35f987659e00f09f65a4cea17f12b2ab268e0f9b3560c17508",
+  "tool_count": 29
+}

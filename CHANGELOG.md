@@ -1,5 +1,7 @@
 # Changelog
 
+Agent-facing guide: [all current capabilities and dated release history](docs/AGENT-CHANGELOG.md).
+
 ## 3.1.1 — 2026-11-02 — final acceptance fixes
 
 - Restored saved overnight review summaries to first-touch and explicit resume, with provenance checks and historical labels.
